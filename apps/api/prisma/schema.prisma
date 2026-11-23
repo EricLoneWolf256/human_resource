@@ -1,0 +1,475 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String           @id @default(uuid()) @db.VarChar(36)
+  employeeId           String?          @unique @db.VarChar(36)
+  email                String           @unique @db.VarChar(254)
+  passwordHash         String           @db.VarChar(255)
+  status               UserStatus       @default(ACTIVE)
+  mustChangePassword   Boolean          @default(false)
+  lastLoginAt          DateTime?
+  createdById          String?          @db.VarChar(36)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  employee             Employee?        @relation("UserEmployee", fields: [employeeId], references: [id])
+  createdBy            User?            @relation("UserCreator", fields: [createdById], references: [id])
+  createdUsers         User[]           @relation("UserCreator")
+  sessions             Session[]
+  roleAssignments      RoleAssignment[] @relation("RoleAssignee")
+  assignedRoles        RoleAssignment[] @relation("RoleAssigner")
+  revokedRoles         RoleAssignment[] @relation("RoleRevoker")
+  createdEmployees     Employee[]       @relation("EmployeeCreator")
+  statusChanges        EmployeeStatusHistory[] @relation("StatusChanger")
+  createdAssignments   EmployeeAssignment[]    @relation("AssignmentCreator")
+  requestedChanges     EmployeeChangeRequest[] @relation("ChangeRequestRequester")
+  reviewedChanges      EmployeeChangeRequest[] @relation("ChangeRequestReviewer")
+  uploadedDocuments    Document[]       @relation("DocumentUploader")
+  verifiedDocuments    Document[]       @relation("DocumentVerifier")
+  notifications        Notification[]
+  auditEvents          AuditEvent[]
+
+  @@index([status])
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.VarChar(36)
+  userId           String    @db.VarChar(36)
+  refreshTokenHash String    @unique @db.VarChar(64)
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastUsedAt       DateTime?
+  userAgent        String?   @db.VarChar(300)
+  ipAddress        String?   @db.VarChar(45)
+  createdAt        DateTime  @default(now())
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  email       String   @db.VarChar(254)
+  ipAddress   String?  @db.VarChar(45)
+  success     Boolean
+  attemptedAt DateTime @default(now())
+
+  @@index([email, attemptedAt])
+}
+
+model Permission {
+  key         String @id @db.VarChar(80)
+  description String @db.VarChar(255)
+  module      String @db.VarChar(50)
+
+  roles       RolePermission[]
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  key         String   @unique @db.VarChar(60)
+  name        String   @db.VarChar(120)
+  description String   @db.Text
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  permissions RolePermission[]
+  assignments RoleAssignment[]
+}
+
+model RolePermission {
+  roleId         String @db.VarChar(36)
+  permissionKey  String @db.VarChar(80)
+
+  role           Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission     Permission @relation(fields: [permissionKey], references: [key])
+
+  @@id([roleId, permissionKey])
+}
+
+model RoleAssignment {
+  id           String     @id @default(uuid()) @db.VarChar(36)
+  userId       String     @db.VarChar(36)
+  roleId       String     @db.VarChar(36)
+  scopeType    ScopeType
+  scopeUnitId  String?    @db.VarChar(36)
+  startDate    DateTime   @db.Date
+  endDate      DateTime?  @db.Date
+  assignedById String?    @db.VarChar(36)
+  revokedAt    DateTime?
+  revokedById  String?    @db.VarChar(36)
+  reason       String     @db.VarChar(500)
+  createdAt    DateTime   @default(now())
+
+  user         User      @relation("RoleAssignee", fields: [userId], references: [id])
+  role         Role      @relation(fields: [roleId], references: [id])
+  scopeUnit    OrgUnit?  @relation("RoleScopeUnit", fields: [scopeUnitId], references: [id])
+  assignedBy   User?     @relation("RoleAssigner", fields: [assignedById], references: [id])
+  revokedBy    User?     @relation("RoleRevoker", fields: [revokedById], references: [id])
+
+  @@index([userId, revokedAt])
+  @@index([roleId])
+  @@index([scopeUnitId])
+}
+
+model OrgUnit {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  code           String       @unique @db.VarChar(12)
+  name           String       @db.VarChar(120)
+  type           OrgUnitType
+  parentId       String?      @db.VarChar(36)
+  headEmployeeId String?      @db.VarChar(36)
+  status         UnitStatus   @default(ACTIVE)
+  effectiveFrom  DateTime     @db.Date
+  effectiveTo    DateTime?    @db.Date
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  parent         OrgUnit?     @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children       OrgUnit[]    @relation("OrgHierarchy")
+  headEmployee   Employee?    @relation("UnitHead", fields: [headEmployeeId], references: [id])
+  positions      Position[]
+  assignments    EmployeeAssignment[]
+  roleAssignments RoleAssignment[] @relation("RoleScopeUnit")
+
+  @@index([parentId])
+  @@index([status])
+}
+
+model Position {
+  id                String         @id @default(uuid()) @db.VarChar(36)
+  code              String         @unique @db.VarChar(16)
+  title             String         @db.VarChar(120)
+  description       String?        @db.Text
+  grade             String?        @db.VarChar(20)
+  unitId            String         @db.VarChar(36)
+  approvedHeadcount Int            @default(1)
+  status            PositionStatus @default(ACTIVE)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  unit              OrgUnit        @relation(fields: [unitId], references: [id])
+  assignments       EmployeeAssignment[]
+
+  @@index([unitId])
+}
+
+model Employee {
+  id               String          @id @default(uuid()) @db.VarChar(36)
+  staffNumber      String          @unique @db.VarChar(12)
+  firstName        String          @db.VarChar(80)
+  middleName       String?         @db.VarChar(80)
+  lastName         String          @db.VarChar(80)
+  preferredName    String?         @db.VarChar(80)
+  contactEmail     String?         @db.VarChar(254)
+  phone            String?         @db.VarChar(30)
+  dateOfBirth      DateTime?       @db.Date
+  nationalId       String?         @db.VarChar(50)
+  gender           Gender?
+  employmentType   EmploymentType
+  employmentStatus EmploymentStatus @default(DRAFT)
+  profileStatus    ProfileStatus   @default(DRAFT)
+  hireDate         DateTime?       @db.Date
+  endDate          DateTime?       @db.Date
+  createdById      String?         @db.VarChar(36)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  user             User?           @relation("UserEmployee")
+  createdBy        User?           @relation("EmployeeCreator", fields: [createdById], references: [id])
+  unitHeads        OrgUnit[]       @relation("UnitHead")
+  assignments      EmployeeAssignment[]       @relation("AssignmentEmployee")
+  supervised       EmployeeAssignment[]       @relation("AssignmentSupervisor")
+  statusHistory    EmployeeStatusHistory[]
+  emergencyContacts EmergencyContact[]
+  qualifications   Qualification[]
+  documents        Document[]
+  changeRequests   EmployeeChangeRequest[]
+
+  @@index([employmentStatus])
+  @@index([profileStatus])
+  @@index([hireDate])
+}
+
+model EmployeeAssignment {
+  id                   String         @id @default(uuid()) @db.VarChar(36)
+  employeeId           String         @db.VarChar(36)
+  positionId           String?        @db.VarChar(36)
+  unitId               String         @db.VarChar(36)
+  supervisorEmployeeId String?        @db.VarChar(36)
+  startDate            DateTime       @db.Date
+  endDate              DateTime?      @db.Date
+  assignmentType       AssignmentType @default(PRIMARY)
+  isActing             Boolean        @default(false)
+  notes                String?        @db.VarChar(500)
+  createdById          String?        @db.VarChar(36)
+  createdAt            DateTime       @default(now())
+
+  employee             Employee       @relation("AssignmentEmployee", fields: [employeeId], references: [id])
+  unit                 OrgUnit        @relation(fields: [unitId], references: [id])
+  position             Position?      @relation(fields: [positionId], references: [id])
+  supervisor           Employee?      @relation("AssignmentSupervisor", fields: [supervisorEmployeeId], references: [id])
+  createdBy            User?          @relation("AssignmentCreator", fields: [createdById], references: [id])
+
+  @@index([employeeId, endDate])
+  @@index([unitId, endDate])
+  @@index([supervisorEmployeeId, endDate])
+}
+
+model EmployeeStatusHistory {
+  id            String          @id @default(uuid()) @db.VarChar(36)
+  employeeId    String          @db.VarChar(36)
+  fromStatus    EmploymentStatus?
+  toStatus      EmploymentStatus
+  effectiveDate DateTime        @db.Date
+  reason        String          @db.VarChar(500)
+  changedById   String?         @db.VarChar(36)
+  createdAt     DateTime        @default(now())
+
+  employee      Employee        @relation(fields: [employeeId], references: [id])
+  changedBy     User?           @relation("StatusChanger", fields: [changedById], references: [id])
+
+  @@index([employeeId, effectiveDate])
+}
+
+model EmergencyContact {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  employeeId   String   @db.VarChar(36)
+  name         String   @db.VarChar(120)
+  relationship String   @db.VarChar(60)
+  phone        String   @db.VarChar(30)
+  createdAt    DateTime @default(now())
+
+  employee     Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+}
+
+model Qualification {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  employeeId    String   @db.VarChar(36)
+  institution   String   @db.VarChar(150)
+  award         String   @db.VarChar(120)
+  fieldOfStudy  String?  @db.VarChar(120)
+  yearCompleted Int?
+  verified      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  employee      Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+}
+
+model EmployeeChangeRequest {
+  id              String             @id @default(uuid()) @db.VarChar(36)
+  employeeId      String             @db.VarChar(36)
+  requestedById   String             @db.VarChar(36)
+  field           String             @db.VarChar(50)
+  currentValue    String?            @db.VarChar(500)
+  requestedValue  String             @db.VarChar(500)
+  reason          String?            @db.VarChar(500)
+  status          ChangeRequestStatus @default(PENDING)
+  reviewedById    String?            @db.VarChar(36)
+  reviewedAt      DateTime?
+  reviewComment   String?            @db.VarChar(500)
+  createdAt       DateTime           @default(now())
+
+  employee        Employee           @relation(fields: [employeeId], references: [id])
+  requestedBy     User               @relation("ChangeRequestRequester", fields: [requestedById], references: [id])
+  reviewedBy      User?              @relation("ChangeRequestReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status])
+  @@index([employeeId])
+}
+
+model Document {
+  id              String          @id @default(uuid()) @db.VarChar(36)
+  employeeId      String          @db.VarChar(36)
+  category        DocumentCategory
+  title           String          @db.VarChar(150)
+  originalFilename String         @db.VarChar(255)
+  storageKey      String          @unique @db.VarChar(100)
+  mimeType        String          @db.VarChar(100)
+  sizeBytes       Int
+  status          DocumentStatus  @default(PENDING)
+  sensitivity     SensitivityLevel @default(CONFIDENTIAL)
+  version         Int             @default(1)
+  expiryDate      DateTime?       @db.Date
+  retentionStatus RetentionStatus @default(ACTIVE)
+  uploadedById    String          @db.VarChar(36)
+  verifiedById    String?         @db.VarChar(36)
+  verifiedAt      DateTime?
+  verificationNote String?        @db.VarChar(500)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  employee        Employee        @relation(fields: [employeeId], references: [id])
+  uploadedBy      User            @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  verifiedBy      User?           @relation("DocumentVerifier", fields: [verifiedById], references: [id])
+
+  @@index([employeeId, status])
+  @@index([expiryDate])
+}
+
+model Notification {
+  id               String              @id @default(uuid()) @db.VarChar(36)
+  recipientUserId  String              @db.VarChar(36)
+  eventType        String              @db.VarChar(80)
+  title            String              @db.VarChar(150)
+  safeSummary      String              @db.VarChar(500)
+  relatedEntityType String?            @db.VarChar(50)
+  relatedEntityId  String?             @db.VarChar(36)
+  priority         NotificationPriority @default(NORMAL)
+  createdAt        DateTime            @default(now())
+  readAt           DateTime?
+  expiresAt        DateTime?
+
+  recipient        User                @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([recipientUserId, readAt])
+}
+
+model AuditEvent {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  actorUserId  String?  @db.VarChar(36)
+  actorLabel   String?  @db.VarChar(120)
+  action       String   @db.VarChar(80)
+  entityType   String   @db.VarChar(50)
+  entityId     String?  @db.VarChar(36)
+  reason       String?  @db.VarChar(500)
+  before       Json?
+  after        Json?
+  ipAddress    String?  @db.VarChar(45)
+  userAgent    String?  @db.VarChar(300)
+  createdAt    DateTime @default(now())
+
+  actor        User?    @relation(fields: [actorUserId], references: [id])
+
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum ScopeType {
+  OWN
+  ASSIGNED
+  TEAM
+  DEPARTMENT
+  FACULTY
+  INSTITUTION
+}
+
+enum OrgUnitType {
+  UNIVERSITY
+  FACULTY
+  SCHOOL
+  DIRECTORATE
+  DEPARTMENT
+  OFFICE
+  UNIT
+  SECTION
+}
+
+enum UnitStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PositionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EmploymentType {
+  PERMANENT
+  FIXED_TERM
+  PART_TIME
+  VISITING
+  ADJUNCT
+  PROJECT
+  TEMPORARY
+}
+
+enum EmploymentStatus {
+  DRAFT
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  RESIGNED
+  RETIRED
+  TERMINATED
+  ARCHIVED
+}
+
+enum ProfileStatus {
+  DRAFT
+  INCOMPLETE
+  SUBMITTED
+  VERIFIED
+}
+
+enum AssignmentType {
+  PRIMARY
+  ADDITIONAL
+  ACTING
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNDISCLOSED
+}
+
+enum DocumentCategory {
+  CONTRACT
+  IDENTIFICATION
+  QUALIFICATION
+  CV
+  APPOINTMENT_LETTER
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum SensitivityLevel {
+  INTERNAL
+  CONFIDENTIAL
+  HIGHLY_RESTRICTED
+}
+
+enum RetentionStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationPriority {
+  NORMAL
+  HIGH
+}

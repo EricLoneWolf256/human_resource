@@ -1,0 +1,54 @@
+export const PERMISSIONS = [
+  { key: 'employee.view', module: 'employees', description: 'View employee records within scope' },
+  { key: 'employee.create', module: 'employees', description: 'Create employee records' },
+  { key: 'employee.update', module: 'employees', description: 'Update employee records within scope' },
+  { key: 'employee.archive', module: 'employees', description: 'Archive employee records' },
+  { key: 'employee.verify', module: 'employees', description: 'Verify employee records' },
+  { key: 'employee.assign_unit', module: 'employees', description: 'Assign employees to organizational units' },
+  { key: 'employee.assign_supervisor', module: 'employees', description: 'Assign supervisors to employees' },
+  { key: 'employee.view_sensitive', module: 'employees', description: 'View sensitive identity fields (national ID, date of birth, emergency contacts)' },
+  { key: 'employee.export', module: 'employees', description: 'Export employee directory data' },
+  { key: 'document.view', module: 'documents', description: 'View document metadata within scope' },
+  { key: 'document.upload', module: 'documents', description: 'Upload documents' },
+  { key: 'document.verify', module: 'documents', description: 'Verify or reject documents' },
+  { key: 'document.download', module: 'documents', description: 'Download document files within scope' },
+  { key: 'document.delete', module: 'documents', description: 'Archive/delete documents' },
+  { key: 'org.view', module: 'organization', description: 'View organizational units and positions' },
+  { key: 'org.manage', module: 'organization', description: 'Manage organizational units and positions' },
+  { key: 'user.manage', module: 'access', description: 'Manage user accounts and status' },
+  { key: 'role.manage', module: 'access', description: 'Assign and revoke roles and scopes' },
+  { key: 'permission.manage', module: 'access', description: 'Manage the permission catalogue' },
+  { key: 'access.delegate', module: 'access', description: 'Delegate temporary access' },
+  { key: 'report.view', module: 'reports', description: 'View scoped reports' },
+  { key: 'report.export', module: 'reports', description: 'Export reports' },
+  { key: 'audit.view', module: 'audit', description: 'Search and view audit events' },
+  { key: 'leave.submit', module: 'leave', description: 'Submit leave requests (Phase 2)' },
+  { key: 'leave.view', module: 'leave', description: 'View leave requests within scope (Phase 2)' },
+  { key: 'leave.approve', module: 'leave', description: 'Approve leave requests (Phase 2)' },
+  { key: 'leave.reject', module: 'leave', description: 'Reject leave requests (Phase 2)' },
+  { key: 'leave.adjust_balance', module: 'leave', description: 'Adjust leave balances (Phase 2)' },
+  { key: 'recruitment.create', module: 'recruitment', description: 'Create recruitment requisitions (Phase 3)' },
+  { key: 'recruitment.manage', module: 'recruitment', description: 'Manage recruitment (Phase 3)' },
+  { key: 'candidate.view', module: 'recruitment', description: 'View assigned candidates (Phase 3)' },
+  { key: 'candidate.score', module: 'recruitment', description: 'Score candidates (Phase 3)' },
+  { key: 'candidate.export', module: 'recruitment', description: 'Export candidate data (Phase 3)' },
+  { key: 'appraisal.create', module: 'performance', description: 'Create appraisals (Phase 3)' },
+  { key: 'appraisal.review', module: 'performance', description: 'Review appraisals (Phase 3)' },
+  { key: 'appraisal.finalize', module: 'performance', description: 'Finalize appraisals (Phase 3)' },
+  { key: 'training.manage', module: 'training', description: 'Manage training (Phase 3)' },
+  { key: 'training.approve', module: 'training', description: 'Approve training (Phase 3)' },
+  { key: 'promotion.review', module: 'career', description: 'Review promotion cases (Phase 3)' },
+  { key: 'promotion.approve', module: 'career', description: 'Approve promotion cases (Phase 3)' },
+  { key: 'complaint.view_assigned', module: 'requests', description: 'View assigned complaints (Phase 2)' },
+  { key: 'complaint.assign', module: 'requests', description: 'Assign complaints (Phase 2)' },
+  { key: 'complaint.investigate', module: 'requests', description: 'Investigate complaints (Phase 2)' },
+  { key: 'complaint.close', module: 'requests', description: 'Close complaints (Phase 2)' },
+] as const;
+
+export type PermissionKey = (typeof PERMISSIONS)[number]['key'];
+
+export const PERMISSION_KEYS: readonly PermissionKey[] = PERMISSIONS.map((p) => p.key);
+
+export function isPermissionKey(value: string): value is PermissionKey {
+  return (PERMISSION_KEYS as readonly string[]).includes(value);
+}

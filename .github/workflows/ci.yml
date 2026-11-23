@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root_dev_password
+          MYSQL_DATABASE: hr_system
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot_dev_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: mysql://root:root_dev_password@127.0.0.1:3306/hr_system
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Create test database
+        run: mysql -h 127.0.0.1 -uroot -proot_dev_password -e "CREATE DATABASE IF NOT EXISTS hr_system_test;"
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate -w @umu-hr/api
+
+      - name: Apply development database migrations
+        run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+
+      - name: Apply test database migrations
+        run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+        env:
+          DATABASE_URL: mysql://root:root_dev_password@127.0.0.1:3306/hr_system_test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+        env:
+          DATABASE_URL: mysql://root:root_dev_password@127.0.0.1:3306/hr_system_test

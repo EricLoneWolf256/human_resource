@@ -1,0 +1,3 @@
+CREATE DATABASE IF NOT EXISTS hr_system_test;
+GRANT ALL PRIVILEGES ON hr_system_test.* TO 'hr_app'@'%';
+FLUSH PRIVILEGES;
