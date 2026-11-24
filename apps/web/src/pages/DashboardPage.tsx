@@ -36,6 +36,25 @@ export default function DashboardPage() {
         {data.profile ? (
           <Stat label="Profile completeness" value={`${data.profile.completenessPercent}%`} note={data.profile.profileStatus} />
         ) : null}
+        {data.phase2?.pendingLeaveApprovals !== null && data.phase2?.pendingLeaveApprovals !== undefined ? (
+          <Stat label="Leave approvals" value={data.phase2.pendingLeaveApprovals} />
+        ) : null}
+        {data.phase2?.openHrRequests !== null && data.phase2?.openHrRequests !== undefined ? (
+          <Stat label="Open HR requests" value={data.phase2.openHrRequests} />
+        ) : null}
+        {data.phase2?.expiringContracts !== null && data.phase2?.expiringContracts !== undefined ? (
+          <Stat label="Contracts expiring in 90 days" value={data.phase2.expiringContracts} />
+        ) : null}
+        {data.phase2?.probationReviewsDue !== null && data.phase2?.probationReviewsDue !== undefined ? (
+          <Stat label="Probation reviews due" value={data.phase2.probationReviewsDue} />
+        ) : null}
+        {data.phase2?.onboardingCompletion ? (
+          <Stat
+            label="Onboarding"
+            value={`${data.phase2.onboardingCompletion.completed}/${data.phase2.onboardingCompletion.total}`}
+            note="Checklists completed"
+          />
+        ) : null}
         {data.admin ? <Stat label="Active role assignments" value={data.admin.activeRoleAssignments} note={`${data.admin.expiringAssignments7d} expiring in 7 days`} /> : null}
       </div>
 

@@ -3,14 +3,23 @@ import {
   ASSIGNMENT_TYPES,
   CHANGE_REQUEST_FIELDS,
   CHANGE_REQUEST_STATUSES,
+  CONTRACT_RENEWAL_STATUSES,
+  CONTRACT_STATUSES,
+  CONTRACT_TYPES,
   DOCUMENT_CATEGORIES,
   DOCUMENT_STATUSES,
   EMPLOYMENT_STATUSES,
   EMPLOYMENT_TYPES,
   GENDERS,
+  HR_REQUEST_CATEGORIES,
+  HR_REQUEST_STATUSES,
+  LEAVE_REQUEST_STATUSES,
   NOTIFICATION_PRIORITIES,
+  ONBOARDING_TASK_STATUSES,
   ORG_UNIT_TYPES,
   POSITION_STATUSES,
+  PROBATION_OUTCOMES,
+  REMINDER_TYPES,
   SCOPE_TYPES,
   SENSITIVITY_LEVELS,
   STAFF_NUMBER_HINT,
@@ -294,6 +303,284 @@ export const changeRequestQuerySchema = paginationSchema.extend({
   employeeId: uuid.optional(),
 });
 
+function ensureDateRange(val: { startDate: string; endDate: string }, ctx: z.RefinementCtx): void {
+  if (val.endDate < val.startDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['endDate'],
+      message: 'endDate must be on or after startDate',
+    });
+  }
+}
+
+export const leaveTypeCreateSchema = z.object({
+  code: z.string().trim().regex(/^[A-Z0-9-]{2,16}$/, 'Code must be 2-16 uppercase letters, digits or hyphens'),
+  name: z.string().trim().min(2).max(120),
+  description: optionalText(500),
+  requiresReason: z.boolean().default(false),
+  requiresEvidence: z.boolean().default(false),
+  requiresHrReview: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+});
+
+export const leaveTypeUpdateSchema = leaveTypeCreateSchema.partial().omit({ code: true });
+
+export const leavePolicyUpsertSchema = z.object({
+  leaveTypeId: uuid,
+  period: z.string().trim().regex(/^\d{4}(-\d{2})?$/, 'Use YYYY or YYYY-MM'),
+  entitlementDays: z.number().min(0).max(365),
+  carryoverCapDays: z.number().min(0).max(365).default(0),
+  maxConsecutiveDays: z.number().int().min(1).max(365).default(365),
+  minNoticeDays: z.number().int().min(0).max(365).default(0),
+  allowNegativeBalance: z.boolean().default(false),
+});
+
+export const leaveBalanceAdjustSchema = z.object({
+  delta: z.number().min(-365).max(365).refine((value) => value !== 0, 'delta cannot be zero'),
+  reason: z.string().trim().min(3).max(500),
+});
+
+export const leaveRequestCreateSchema = z
+  .object({
+    employeeId: uuid.optional(),
+    leaveTypeId: uuid,
+    startDate: dateOnly,
+    endDate: dateOnly,
+    reason: z.string().trim().max(1000).optional().nullable(),
+    isHalfDay: z.boolean().default(false),
+    documentIds: z.array(uuid).max(5).optional(),
+  })
+  .superRefine((val, ctx) => {
+    ensureDateRange(val, ctx);
+    if (val.isHalfDay && val.startDate !== val.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['isHalfDay'],
+        message: 'Half-day leave must be a single day',
+      });
+    }
+  });
+
+export const leaveDecisionSchema = z
+  .object({
+    action: z.enum(['APPROVE', 'REJECT', 'SEND_HR']),
+    comment: optionalText(500),
+  })
+  .superRefine((val, ctx) => {
+    if (val.action === 'REJECT' && (!val.comment || val.comment.trim().length < 3)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['comment'],
+        message: 'A comment of at least 3 characters is required to reject leave',
+      });
+    }
+  });
+
+export const leaveCancelSchema = z.object({
+  reason: z.string().trim().min(3).max(500),
+});
+
+export const leaveRequestQuerySchema = paginationSchema.extend({
+  status: z.enum(LEAVE_REQUEST_STATUSES).optional(),
+  employeeId: uuid.optional(),
+  leaveTypeId: uuid.optional(),
+  fromDate: dateOnly.optional(),
+  toDate: dateOnly.optional(),
+});
+
+export const leaveBalanceQuerySchema = z.object({
+  employeeId: uuid.optional(),
+});
+
+export const hrRequestCreateSchema = z.object({
+  category: z.enum(HR_REQUEST_CATEGORIES),
+  subject: z.string().trim().min(3).max(150),
+  description: z.string().trim().min(10).max(5000),
+  sensitivity: z.enum(SENSITIVITY_LEVELS).default('INTERNAL'),
+  requestedForEmployeeId: uuid.optional(),
+  relatedLeaveRequestId: uuid.optional(),
+});
+
+export const hrRequestAssignSchema = z.object({
+  assignedToUserId: uuid,
+  note: optionalText(500),
+});
+
+export const hrRequestStatusSchema = z
+  .object({
+    status: z.enum(HR_REQUEST_STATUSES),
+    comment: optionalText(1000),
+  })
+  .superRefine((val, ctx) => {
+    if (val.status === 'CLOSED' && (!val.comment || val.comment.trim().length < 3)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['comment'],
+        message: 'A closing comment of at least 3 characters is required',
+      });
+    }
+  });
+
+export const hrRequestFeedbackSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: optionalText(1000),
+});
+
+export const hrRequestQuerySchema = paginationSchema.extend({
+  status: z.enum(HR_REQUEST_STATUSES).optional(),
+  category: z.enum(HR_REQUEST_CATEGORIES).optional(),
+  assignedToUserId: uuid.optional(),
+  mine: z.enum(['true', 'false']).optional(),
+  q: z.string().trim().max(120).optional(),
+});
+
+export const contractCreateSchema = z
+  .object({
+    employeeId: uuid,
+    type: z.enum(CONTRACT_TYPES),
+    startDate: dateOnly,
+    endDate: dateOnly.optional().nullable(),
+    status: z.enum(CONTRACT_STATUSES).default('DRAFT'),
+    renewalStatus: z.enum(CONTRACT_RENEWAL_STATUSES).default('NONE'),
+    documentId: uuid.optional().nullable(),
+    notes: optionalText(1000),
+  })
+  .superRefine((val, ctx) => {
+    if (val.endDate && val.endDate < val.startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'endDate must be on or after startDate',
+      });
+    }
+    if (val.type === 'FIXED_TERM' && !val.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'endDate is required for fixed-term contracts',
+      });
+    }
+  });
+
+export const contractUpdateSchema = z.object({
+  type: z.enum(CONTRACT_TYPES).optional(),
+  startDate: dateOnly.optional(),
+  endDate: dateOnly.optional().nullable(),
+  status: z.enum(CONTRACT_STATUSES).optional(),
+  renewalStatus: z.enum(CONTRACT_RENEWAL_STATUSES).optional(),
+  documentId: uuid.optional().nullable(),
+  notes: optionalText(1000),
+});
+
+export const probationCreateSchema = z
+  .object({
+    employeeId: uuid,
+    startDate: dateOnly,
+    endDate: dateOnly,
+    reviewDate: dateOnly,
+    notes: optionalText(1000),
+  })
+  .superRefine((val, ctx) => {
+    ensureDateRange({ startDate: val.startDate, endDate: val.endDate }, ctx);
+    if (val.reviewDate < val.startDate || val.reviewDate > val.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reviewDate'],
+        message: 'reviewDate must fall within the probation period',
+      });
+    }
+  });
+
+export const probationReviewSchema = z
+  .object({
+    outcome: z.enum(PROBATION_OUTCOMES),
+    notes: optionalText(1000),
+    effectiveDate: dateOnly.optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.outcome !== 'PENDING' && (!val.notes || val.notes.trim().length < 3)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['notes'],
+        message: 'Notes of at least 3 characters are required for this outcome',
+      });
+    }
+  });
+
+export const onboardingTaskTemplateSchema = z.object({
+  title: z.string().trim().min(2).max(150),
+  description: optionalText(500),
+  ownerRoleKey: z.string().trim().min(2).max(60),
+  dueOffsetDays: z.number().int().min(0).max(365).default(0),
+  isRequired: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).max(999).default(0),
+});
+
+export const onboardingTemplateCreateSchema = z.object({
+  code: z.string().trim().regex(/^[A-Z0-9-]{2,16}$/, 'Code must be 2-16 uppercase letters, digits or hyphens'),
+  name: z.string().trim().min(2).max(120),
+  description: optionalText(500),
+  tasks: z.array(onboardingTaskTemplateSchema).max(50).default([]),
+});
+
+export const onboardingTaskCreateSchema = z.object({
+  checklistId: uuid,
+  title: z.string().trim().min(2).max(150),
+  description: optionalText(500),
+  ownerUserId: uuid.optional().nullable(),
+  dueDate: dateOnly.optional().nullable(),
+  sortOrder: z.number().int().min(0).max(999).default(0),
+});
+
+export const onboardingChecklistCreateSchema = z.object({
+  employeeId: uuid,
+  templateId: uuid,
+  dueDate: dateOnly.optional().nullable(),
+});
+
+export const onboardingTaskUpdateSchema = z.object({
+  status: z.enum(ONBOARDING_TASK_STATUSES),
+  comment: optionalText(1000),
+  ownerUserId: uuid.optional().nullable(),
+  dueDate: dateOnly.optional().nullable(),
+});
+
+export const reminderScanSchema = z.object({
+  type: z.enum(REMINDER_TYPES).optional(),
+  daysAhead: z.coerce.number().int().min(1).max(365).default(30),
+});
+
+export const delegationCreateSchema = z
+  .object({
+    delegateUserId: uuid,
+    permissionKey: z.string().trim().min(3).max(80),
+    scopeType: z.enum(SCOPE_TYPES),
+    scopeUnitId: uuid.optional().nullable(),
+    startDate: dateOnly.optional(),
+    endDate: dateOnly.optional().nullable(),
+    reason: z.string().trim().min(3).max(500),
+  })
+  .superRefine((val, ctx) => {
+    if (UNIT_SCOPES.includes(val.scopeType) && !val.scopeUnitId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['scopeUnitId'],
+        message: 'scopeUnitId is required for DEPARTMENT and FACULTY scopes',
+      });
+    }
+    if (val.startDate && val.endDate && val.endDate < val.startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'endDate must be on or after startDate',
+      });
+    }
+  });
+
+export const delegationRevokeSchema = z.object({
+  reason: z.string().trim().min(3).max(500),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AssignRoleInput = z.infer<typeof assignRoleSchema>;
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;
@@ -315,3 +602,28 @@ export type UserQuery = z.infer<typeof userQuerySchema>;
 export type PositionQuery = z.infer<typeof positionQuerySchema>;
 export type OrgUnitQuery = z.infer<typeof orgUnitQuerySchema>;
 export type ChangeRequestQuery = z.infer<typeof changeRequestQuerySchema>;
+export type LeaveTypeCreateInput = z.infer<typeof leaveTypeCreateSchema>;
+export type LeaveTypeUpdateInput = z.infer<typeof leaveTypeUpdateSchema>;
+export type LeavePolicyUpsertInput = z.infer<typeof leavePolicyUpsertSchema>;
+export type LeaveBalanceAdjustInput = z.infer<typeof leaveBalanceAdjustSchema>;
+export type LeaveRequestCreateInput = z.infer<typeof leaveRequestCreateSchema>;
+export type LeaveDecisionInput = z.infer<typeof leaveDecisionSchema>;
+export type LeaveCancelInput = z.infer<typeof leaveCancelSchema>;
+export type LeaveRequestQuery = z.infer<typeof leaveRequestQuerySchema>;
+export type LeaveBalanceQuery = z.infer<typeof leaveBalanceQuerySchema>;
+export type HrRequestCreateInput = z.infer<typeof hrRequestCreateSchema>;
+export type HrRequestAssignInput = z.infer<typeof hrRequestAssignSchema>;
+export type HrRequestStatusInput = z.infer<typeof hrRequestStatusSchema>;
+export type HrRequestFeedbackInput = z.infer<typeof hrRequestFeedbackSchema>;
+export type HrRequestQuery = z.infer<typeof hrRequestQuerySchema>;
+export type ContractCreateInput = z.infer<typeof contractCreateSchema>;
+export type ContractUpdateInput = z.infer<typeof contractUpdateSchema>;
+export type ProbationCreateInput = z.infer<typeof probationCreateSchema>;
+export type ProbationReviewInput = z.infer<typeof probationReviewSchema>;
+export type OnboardingTemplateCreateInput = z.infer<typeof onboardingTemplateCreateSchema>;
+export type OnboardingTaskCreateInput = z.infer<typeof onboardingTaskCreateSchema>;
+export type OnboardingChecklistCreateInput = z.infer<typeof onboardingChecklistCreateSchema>;
+export type OnboardingTaskUpdateInput = z.infer<typeof onboardingTaskUpdateSchema>;
+export type ReminderScanInput = z.infer<typeof reminderScanSchema>;
+export type DelegationCreateInput = z.infer<typeof delegationCreateSchema>;
+export type DelegationRevokeInput = z.infer<typeof delegationRevokeSchema>;

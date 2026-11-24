@@ -9,9 +9,13 @@ export const DEMO_PASSWORD = 'Demo#Pass123';
 const FOUNDATION = new Date('2020-01-01T00:00:00.000Z');
 
 const TABLES = [
-  'AuditEvent', 'Notification', 'Document', 'EmployeeChangeRequest', 'EmployeeStatusHistory',
-  'EmployeeAssignment', 'EmergencyContact', 'Qualification', 'Position', 'OrgUnit',
-  'RoleAssignment', 'RolePermission', 'Permission', 'Role', 'Session', 'LoginAttempt', 'Employee', 'User',
+  'AuditEvent', 'Notification', 'Delegation', 'OnboardingTask', 'OnboardingChecklist',
+  'OnboardingTemplateTask', 'OnboardingTemplate', 'Reminder', 'ProbationRecord', 'Contract',
+  'HrRequestEvent', 'HrRequest', 'LeaveRequestDocument', 'WorkflowStep', 'WorkflowInstance',
+  'LeaveBalanceAdjustment', 'LeaveBalance', 'LeavePolicy', 'LeaveType',
+  'Document', 'EmployeeChangeRequest', 'EmployeeStatusHistory', 'EmployeeAssignment',
+  'EmergencyContact', 'Qualification', 'Position', 'OrgUnit', 'RoleAssignment',
+  'RolePermission', 'Permission', 'Role', 'Session', 'LoginAttempt', 'Employee', 'User',
 ];
 
 export async function cleanDatabase(): Promise<void> {
@@ -31,6 +35,8 @@ export interface Baseline {
   hodEmployeeId: string;
   deptAId: string;
   deptBId: string;
+  leaveTypeId: string;
+  onboardingTemplateId: string;
   roleIds: Record<string, string>;
 }
 
@@ -149,6 +155,46 @@ export async function seedBaseline(): Promise<Baseline> {
     },
   });
 
+  const period = String(new Date().getUTCFullYear());
+  const annualLeave = await prisma.leaveType.create({
+    data: {
+      code: 'ANNUAL',
+      name: 'Annual Leave',
+      description: 'Annual vacation leave',
+      requiresReason: false,
+      isActive: true,
+    },
+  });
+  await prisma.leavePolicy.create({
+    data: {
+      leaveTypeId: annualLeave.id,
+      period,
+      entitlementDays: 21,
+      carryoverCapDays: 5,
+      maxConsecutiveDays: 30,
+      minNoticeDays: 0,
+    },
+  });
+  for (const employee of [adminEmployee, hodEmployee, staffA, staffB, plainEmployee]) {
+    await prisma.leaveBalance.create({
+      data: { employeeId: employee.id, leaveTypeId: annualLeave.id, period, entitlementDays: 21 },
+    });
+  }
+
+  const onboardingTemplate = await prisma.onboardingTemplate.create({
+    data: {
+      code: 'STAFF-ONBOARD',
+      name: 'Staff Onboarding',
+      description: 'Standard staff onboarding checklist',
+      tasks: {
+        create: [
+          { title: 'Issue staff number', ownerRoleKey: 'HR_OFFICER', dueOffsetDays: 0, sortOrder: 0 },
+          { title: 'Complete security induction', ownerRoleKey: 'EMPLOYEE', dueOffsetDays: 7, sortOrder: 1 },
+        ],
+      },
+    },
+  });
+
   return {
     adminUserId: adminUser.id,
     hodUserId: hodUser.id,
@@ -158,6 +204,8 @@ export async function seedBaseline(): Promise<Baseline> {
     hodEmployeeId: hodEmployee.id,
     deptAId: deptA.id,
     deptBId: deptB.id,
+    leaveTypeId: annualLeave.id,
+    onboardingTemplateId: onboardingTemplate.id,
     roleIds,
   };
 }

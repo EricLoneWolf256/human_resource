@@ -70,8 +70,14 @@ test('upload rejects mismatched file content', async () => {
   assert.equal(response.status, 400);
 });
 
-test('employee role cannot view the document register', async () => {
+test('employee role can view only their own documents', async () => {
   const token = await login(app, 'employee@umu.ac.mw');
   const response = await request(app).get('/api/documents').set(bearer(token));
-  assert.equal(response.status, 403);
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray(response.body.items));
+
+  const otherEmployee = await request(app)
+    .get(`/api/documents?employeeId=${baseline.staffAId}`)
+    .set(bearer(token));
+  assert.equal(otherEmployee.status, 403);
 });

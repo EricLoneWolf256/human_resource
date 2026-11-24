@@ -120,3 +120,73 @@ export function isValidStaffNumber(value: string): boolean {
 export function isTransitionAllowed(from: EmploymentStatus, to: EmploymentStatus): boolean {
   return EMPLOYMENT_STATUS_TRANSITIONS[from].includes(to);
 }
+
+export const LEAVE_REQUEST_STATUSES = [
+  'DRAFT', 'SUBMITTED', 'PENDING_HR', 'APPROVED', 'REJECTED', 'CANCELLED',
+] as const;
+export type LeaveRequestStatus = (typeof LEAVE_REQUEST_STATUSES)[number];
+
+export const LEAVE_REQUEST_TRANSITIONS: Record<LeaveRequestStatus, readonly LeaveRequestStatus[]> = {
+  DRAFT: ['SUBMITTED'],
+  SUBMITTED: ['PENDING_HR', 'APPROVED', 'REJECTED', 'CANCELLED'],
+  PENDING_HR: ['APPROVED', 'REJECTED', 'CANCELLED'],
+  APPROVED: ['CANCELLED'],
+  REJECTED: [],
+  CANCELLED: [],
+};
+
+export function isLeaveTransitionAllowed(from: LeaveRequestStatus, to: LeaveRequestStatus): boolean {
+  return LEAVE_REQUEST_TRANSITIONS[from].includes(to);
+}
+
+export const HR_REQUEST_STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] as const;
+export type HrRequestStatus = (typeof HR_REQUEST_STATUSES)[number];
+
+export const HR_REQUEST_CATEGORIES = [
+  'GENERAL', 'IT', 'FACILITIES', 'PAYROLL', 'LEAVE_SUPPORT', 'COMPLAINT', 'OTHER',
+] as const;
+export type HrRequestCategory = (typeof HR_REQUEST_CATEGORIES)[number];
+
+export const HR_REQUEST_TRANSITIONS: Record<HrRequestStatus, readonly HrRequestStatus[]> = {
+  OPEN: ['ASSIGNED', 'CLOSED'],
+  ASSIGNED: ['IN_PROGRESS', 'RESOLVED', 'OPEN'],
+  IN_PROGRESS: ['RESOLVED', 'ASSIGNED'],
+  RESOLVED: ['CLOSED', 'IN_PROGRESS'],
+  CLOSED: [],
+};
+
+export function isHrRequestTransitionAllowed(from: HrRequestStatus, to: HrRequestStatus): boolean {
+  return HR_REQUEST_TRANSITIONS[from].includes(to);
+}
+
+export const CONTRACT_TYPES = [
+  'PERMANENT', 'FIXED_TERM', 'PROBATION', 'VISITING', 'ADJUNCT', 'PROJECT',
+] as const;
+export type ContractType = (typeof CONTRACT_TYPES)[number];
+
+export const CONTRACT_STATUSES = ['DRAFT', 'ACTIVE', 'EXPIRED', 'RENEWED', 'TERMINATED'] as const;
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+
+export const CONTRACT_RENEWAL_STATUSES = ['NONE', 'DUE', 'RENEWED', 'EXPIRED'] as const;
+export type ContractRenewalStatus = (typeof CONTRACT_RENEWAL_STATUSES)[number];
+
+export const PROBATION_OUTCOMES = ['PENDING', 'CONFIRMED', 'EXTENDED', 'TERMINATED'] as const;
+export type ProbationOutcome = (typeof PROBATION_OUTCOMES)[number];
+
+export const ONBOARDING_STATUSES = ['PENDING', 'IN_PROGRESS', 'COMPLETED'] as const;
+export type OnboardingStatus = (typeof ONBOARDING_STATUSES)[number];
+
+export const ONBOARDING_TASK_STATUSES = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'BLOCKED'] as const;
+export type OnboardingTaskStatus = (typeof ONBOARDING_TASK_STATUSES)[number];
+
+export const WORKFLOW_STATUSES = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'REJECTED', 'CANCELLED'] as const;
+export type WorkflowStatus = (typeof WORKFLOW_STATUSES)[number];
+
+export const WORKFLOW_STEP_STATUSES = ['PENDING', 'ACTIVE', 'APPROVED', 'REJECTED', 'SKIPPED'] as const;
+export type WorkflowStepStatus = (typeof WORKFLOW_STEP_STATUSES)[number];
+
+export const REMINDER_TYPES = ['CONTRACT_EXPIRY', 'PROBATION_REVIEW'] as const;
+export type ReminderType = (typeof REMINDER_TYPES)[number];
+
+export const DELEGATION_STATUSES = ['ACTIVE', 'EXPIRED', 'REVOKED'] as const;
+export type DelegationStatus = (typeof DELEGATION_STATUSES)[number];

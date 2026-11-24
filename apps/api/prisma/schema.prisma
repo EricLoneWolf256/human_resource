@@ -8,33 +8,47 @@ datasource db {
 }
 
 model User {
-  id                   String           @id @default(uuid()) @db.VarChar(36)
-  employeeId           String?          @unique @db.VarChar(36)
-  email                String           @unique @db.VarChar(254)
-  passwordHash         String           @db.VarChar(255)
-  status               UserStatus       @default(ACTIVE)
-  mustChangePassword   Boolean          @default(false)
-  lastLoginAt          DateTime?
-  createdById          String?          @db.VarChar(36)
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
+  id                 String     @id @default(uuid()) @db.VarChar(36)
+  employeeId         String?    @unique @db.VarChar(36)
+  email              String     @unique @db.VarChar(254)
+  passwordHash       String     @db.VarChar(255)
+  status             UserStatus @default(ACTIVE)
+  mustChangePassword Boolean    @default(false)
+  lastLoginAt        DateTime?
+  createdById        String?    @db.VarChar(36)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
-  employee             Employee?        @relation("UserEmployee", fields: [employeeId], references: [id])
-  createdBy            User?            @relation("UserCreator", fields: [createdById], references: [id])
-  createdUsers         User[]           @relation("UserCreator")
-  sessions             Session[]
-  roleAssignments      RoleAssignment[] @relation("RoleAssignee")
-  assignedRoles        RoleAssignment[] @relation("RoleAssigner")
-  revokedRoles         RoleAssignment[] @relation("RoleRevoker")
-  createdEmployees     Employee[]       @relation("EmployeeCreator")
-  statusChanges        EmployeeStatusHistory[] @relation("StatusChanger")
-  createdAssignments   EmployeeAssignment[]    @relation("AssignmentCreator")
-  requestedChanges     EmployeeChangeRequest[] @relation("ChangeRequestRequester")
-  reviewedChanges      EmployeeChangeRequest[] @relation("ChangeRequestReviewer")
-  uploadedDocuments    Document[]       @relation("DocumentUploader")
-  verifiedDocuments    Document[]       @relation("DocumentVerifier")
-  notifications        Notification[]
-  auditEvents          AuditEvent[]
+  employee                 Employee?                @relation("UserEmployee", fields: [employeeId], references: [id])
+  createdBy                User?                    @relation("UserCreator", fields: [createdById], references: [id])
+  createdUsers             User[]                   @relation("UserCreator")
+  sessions                 Session[]
+  roleAssignments          RoleAssignment[]         @relation("RoleAssignee")
+  assignedRoles            RoleAssignment[]         @relation("RoleAssigner")
+  revokedRoles             RoleAssignment[]         @relation("RoleRevoker")
+  createdEmployees         Employee[]               @relation("EmployeeCreator")
+  statusChanges            EmployeeStatusHistory[]  @relation("StatusChanger")
+  createdAssignments       EmployeeAssignment[]     @relation("AssignmentCreator")
+  requestedChanges         EmployeeChangeRequest[]  @relation("ChangeRequestRequester")
+  reviewedChanges          EmployeeChangeRequest[]  @relation("ChangeRequestReviewer")
+  uploadedDocuments        Document[]               @relation("DocumentUploader")
+  verifiedDocuments        Document[]               @relation("DocumentVerifier")
+  notifications            Notification[]
+  auditEvents              AuditEvent[]
+  leaveRequestsRequested   LeaveRequest[]           @relation("LeaveRequestRequester")
+  leaveRequestsDecided     LeaveRequest[]           @relation("LeaveRequestDecider")
+  leaveBalanceAdjustments  LeaveBalanceAdjustment[] @relation("LeaveBalanceAdjuster")
+  workflowStepsActed       WorkflowStep[]           @relation("WorkflowStepActor")
+  hrRequestsAssigned       HrRequest[]              @relation("HrRequestAssignee")
+  hrRequestEvents          HrRequestEvent[]         @relation("HrRequestEventActor")
+  contractsCreated         Contract[]               @relation("ContractCreator")
+  probationReviews         ProbationRecord[]        @relation("ProbationReviewer")
+  reminders                Reminder[]               @relation("ReminderRecipient")
+  onboardingTasksOwned     OnboardingTask[]         @relation("OnboardingTaskOwner")
+  onboardingTasksCompleted OnboardingTask[]         @relation("OnboardingTaskCompleter")
+  delegationsGranted       Delegation[]             @relation("DelegationGrantor")
+  delegationsReceived      Delegation[]             @relation("DelegationDelegate")
+  delegationsRevoked       Delegation[]             @relation("DelegationRevoker")
 
   @@index([status])
 }
@@ -50,7 +64,7 @@ model Session {
   ipAddress        String?   @db.VarChar(45)
   createdAt        DateTime  @default(now())
 
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -71,7 +85,7 @@ model Permission {
   description String @db.VarChar(255)
   module      String @db.VarChar(50)
 
-  roles       RolePermission[]
+  roles RolePermission[]
 }
 
 model Role {
@@ -87,34 +101,34 @@ model Role {
 }
 
 model RolePermission {
-  roleId         String @db.VarChar(36)
-  permissionKey  String @db.VarChar(80)
+  roleId        String @db.VarChar(36)
+  permissionKey String @db.VarChar(80)
 
-  role           Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission     Permission @relation(fields: [permissionKey], references: [key])
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionKey], references: [key])
 
   @@id([roleId, permissionKey])
 }
 
 model RoleAssignment {
-  id           String     @id @default(uuid()) @db.VarChar(36)
-  userId       String     @db.VarChar(36)
-  roleId       String     @db.VarChar(36)
+  id           String    @id @default(uuid()) @db.VarChar(36)
+  userId       String    @db.VarChar(36)
+  roleId       String    @db.VarChar(36)
   scopeType    ScopeType
-  scopeUnitId  String?    @db.VarChar(36)
-  startDate    DateTime   @db.Date
-  endDate      DateTime?  @db.Date
-  assignedById String?    @db.VarChar(36)
+  scopeUnitId  String?   @db.VarChar(36)
+  startDate    DateTime  @db.Date
+  endDate      DateTime? @db.Date
+  assignedById String?   @db.VarChar(36)
   revokedAt    DateTime?
-  revokedById  String?    @db.VarChar(36)
-  reason       String     @db.VarChar(500)
-  createdAt    DateTime   @default(now())
+  revokedById  String?   @db.VarChar(36)
+  reason       String    @db.VarChar(500)
+  createdAt    DateTime  @default(now())
 
-  user         User      @relation("RoleAssignee", fields: [userId], references: [id])
-  role         Role      @relation(fields: [roleId], references: [id])
-  scopeUnit    OrgUnit?  @relation("RoleScopeUnit", fields: [scopeUnitId], references: [id])
-  assignedBy   User?     @relation("RoleAssigner", fields: [assignedById], references: [id])
-  revokedBy    User?     @relation("RoleRevoker", fields: [revokedById], references: [id])
+  user       User     @relation("RoleAssignee", fields: [userId], references: [id])
+  role       Role     @relation(fields: [roleId], references: [id])
+  scopeUnit  OrgUnit? @relation("RoleScopeUnit", fields: [scopeUnitId], references: [id])
+  assignedBy User?    @relation("RoleAssigner", fields: [assignedById], references: [id])
+  revokedBy  User?    @relation("RoleRevoker", fields: [revokedById], references: [id])
 
   @@index([userId, revokedAt])
   @@index([roleId])
@@ -122,24 +136,25 @@ model RoleAssignment {
 }
 
 model OrgUnit {
-  id             String       @id @default(uuid()) @db.VarChar(36)
-  code           String       @unique @db.VarChar(12)
-  name           String       @db.VarChar(120)
+  id             String      @id @default(uuid()) @db.VarChar(36)
+  code           String      @unique @db.VarChar(12)
+  name           String      @db.VarChar(120)
   type           OrgUnitType
-  parentId       String?      @db.VarChar(36)
-  headEmployeeId String?      @db.VarChar(36)
-  status         UnitStatus   @default(ACTIVE)
-  effectiveFrom  DateTime     @db.Date
-  effectiveTo    DateTime?    @db.Date
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  parentId       String?     @db.VarChar(36)
+  headEmployeeId String?     @db.VarChar(36)
+  status         UnitStatus  @default(ACTIVE)
+  effectiveFrom  DateTime    @db.Date
+  effectiveTo    DateTime?   @db.Date
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
-  parent         OrgUnit?     @relation("OrgHierarchy", fields: [parentId], references: [id])
-  children       OrgUnit[]    @relation("OrgHierarchy")
-  headEmployee   Employee?    @relation("UnitHead", fields: [headEmployeeId], references: [id])
-  positions      Position[]
-  assignments    EmployeeAssignment[]
-  roleAssignments RoleAssignment[] @relation("RoleScopeUnit")
+  parent          OrgUnit?             @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children        OrgUnit[]            @relation("OrgHierarchy")
+  headEmployee    Employee?            @relation("UnitHead", fields: [headEmployeeId], references: [id])
+  positions       Position[]
+  assignments     EmployeeAssignment[]
+  roleAssignments RoleAssignment[]     @relation("RoleScopeUnit")
+  delegations     Delegation[]         @relation("DelegationScopeUnit")
 
   @@index([parentId])
   @@index([status])
@@ -157,43 +172,50 @@ model Position {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  unit              OrgUnit        @relation(fields: [unitId], references: [id])
-  assignments       EmployeeAssignment[]
+  unit        OrgUnit              @relation(fields: [unitId], references: [id])
+  assignments EmployeeAssignment[]
 
   @@index([unitId])
 }
 
 model Employee {
-  id               String          @id @default(uuid()) @db.VarChar(36)
-  staffNumber      String          @unique @db.VarChar(12)
-  firstName        String          @db.VarChar(80)
-  middleName       String?         @db.VarChar(80)
-  lastName         String          @db.VarChar(80)
-  preferredName    String?         @db.VarChar(80)
-  contactEmail     String?         @db.VarChar(254)
-  phone            String?         @db.VarChar(30)
-  dateOfBirth      DateTime?       @db.Date
-  nationalId       String?         @db.VarChar(50)
+  id               String           @id @default(uuid()) @db.VarChar(36)
+  staffNumber      String           @unique @db.VarChar(12)
+  firstName        String           @db.VarChar(80)
+  middleName       String?          @db.VarChar(80)
+  lastName         String           @db.VarChar(80)
+  preferredName    String?          @db.VarChar(80)
+  contactEmail     String?          @db.VarChar(254)
+  phone            String?          @db.VarChar(30)
+  dateOfBirth      DateTime?        @db.Date
+  nationalId       String?          @db.VarChar(50)
   gender           Gender?
   employmentType   EmploymentType
   employmentStatus EmploymentStatus @default(DRAFT)
-  profileStatus    ProfileStatus   @default(DRAFT)
-  hireDate         DateTime?       @db.Date
-  endDate          DateTime?       @db.Date
-  createdById      String?         @db.VarChar(36)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  profileStatus    ProfileStatus    @default(DRAFT)
+  hireDate         DateTime?        @db.Date
+  endDate          DateTime?        @db.Date
+  createdById      String?          @db.VarChar(36)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  user             User?           @relation("UserEmployee")
-  createdBy        User?           @relation("EmployeeCreator", fields: [createdById], references: [id])
-  unitHeads        OrgUnit[]       @relation("UnitHead")
-  assignments      EmployeeAssignment[]       @relation("AssignmentEmployee")
-  supervised       EmployeeAssignment[]       @relation("AssignmentSupervisor")
-  statusHistory    EmployeeStatusHistory[]
-  emergencyContacts EmergencyContact[]
-  qualifications   Qualification[]
-  documents        Document[]
-  changeRequests   EmployeeChangeRequest[]
+  user                 User?                   @relation("UserEmployee")
+  createdBy            User?                   @relation("EmployeeCreator", fields: [createdById], references: [id])
+  unitHeads            OrgUnit[]               @relation("UnitHead")
+  assignments          EmployeeAssignment[]    @relation("AssignmentEmployee")
+  supervised           EmployeeAssignment[]    @relation("AssignmentSupervisor")
+  statusHistory        EmployeeStatusHistory[]
+  emergencyContacts    EmergencyContact[]
+  qualifications       Qualification[]
+  documents            Document[]
+  changeRequests       EmployeeChangeRequest[]
+  leaveBalances        LeaveBalance[]
+  leaveRequests        LeaveRequest[]
+  hrRequestsRequester  HrRequest[]             @relation("HrRequestRequester")
+  hrRequestsFor        HrRequest[]             @relation("HrRequestSubject")
+  contracts            Contract[]
+  probationRecords     ProbationRecord[]
+  onboardingChecklists OnboardingChecklist[]
 
   @@index([employmentStatus])
   @@index([profileStatus])
@@ -214,11 +236,11 @@ model EmployeeAssignment {
   createdById          String?        @db.VarChar(36)
   createdAt            DateTime       @default(now())
 
-  employee             Employee       @relation("AssignmentEmployee", fields: [employeeId], references: [id])
-  unit                 OrgUnit        @relation(fields: [unitId], references: [id])
-  position             Position?      @relation(fields: [positionId], references: [id])
-  supervisor           Employee?      @relation("AssignmentSupervisor", fields: [supervisorEmployeeId], references: [id])
-  createdBy            User?          @relation("AssignmentCreator", fields: [createdById], references: [id])
+  employee   Employee  @relation("AssignmentEmployee", fields: [employeeId], references: [id])
+  unit       OrgUnit   @relation(fields: [unitId], references: [id])
+  position   Position? @relation(fields: [positionId], references: [id])
+  supervisor Employee? @relation("AssignmentSupervisor", fields: [supervisorEmployeeId], references: [id])
+  createdBy  User?     @relation("AssignmentCreator", fields: [createdById], references: [id])
 
   @@index([employeeId, endDate])
   @@index([unitId, endDate])
@@ -226,17 +248,17 @@ model EmployeeAssignment {
 }
 
 model EmployeeStatusHistory {
-  id            String          @id @default(uuid()) @db.VarChar(36)
-  employeeId    String          @db.VarChar(36)
+  id            String            @id @default(uuid()) @db.VarChar(36)
+  employeeId    String            @db.VarChar(36)
   fromStatus    EmploymentStatus?
   toStatus      EmploymentStatus
-  effectiveDate DateTime        @db.Date
-  reason        String          @db.VarChar(500)
-  changedById   String?         @db.VarChar(36)
-  createdAt     DateTime        @default(now())
+  effectiveDate DateTime          @db.Date
+  reason        String            @db.VarChar(500)
+  changedById   String?           @db.VarChar(36)
+  createdAt     DateTime          @default(now())
 
-  employee      Employee        @relation(fields: [employeeId], references: [id])
-  changedBy     User?           @relation("StatusChanger", fields: [changedById], references: [id])
+  employee  Employee @relation(fields: [employeeId], references: [id])
+  changedBy User?    @relation("StatusChanger", fields: [changedById], references: [id])
 
   @@index([employeeId, effectiveDate])
 }
@@ -249,7 +271,7 @@ model EmergencyContact {
   phone        String   @db.VarChar(30)
   createdAt    DateTime @default(now())
 
-  employee     Employee @relation(fields: [employeeId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@index([employeeId])
 }
@@ -264,100 +286,458 @@ model Qualification {
   verified      Boolean  @default(false)
   createdAt     DateTime @default(now())
 
-  employee      Employee @relation(fields: [employeeId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@index([employeeId])
 }
 
 model EmployeeChangeRequest {
-  id              String             @id @default(uuid()) @db.VarChar(36)
-  employeeId      String             @db.VarChar(36)
-  requestedById   String             @db.VarChar(36)
-  field           String             @db.VarChar(50)
-  currentValue    String?            @db.VarChar(500)
-  requestedValue  String             @db.VarChar(500)
-  reason          String?            @db.VarChar(500)
-  status          ChangeRequestStatus @default(PENDING)
-  reviewedById    String?            @db.VarChar(36)
-  reviewedAt      DateTime?
-  reviewComment   String?            @db.VarChar(500)
-  createdAt       DateTime           @default(now())
+  id             String              @id @default(uuid()) @db.VarChar(36)
+  employeeId     String              @db.VarChar(36)
+  requestedById  String              @db.VarChar(36)
+  field          String              @db.VarChar(50)
+  currentValue   String?             @db.VarChar(500)
+  requestedValue String              @db.VarChar(500)
+  reason         String?             @db.VarChar(500)
+  status         ChangeRequestStatus @default(PENDING)
+  reviewedById   String?             @db.VarChar(36)
+  reviewedAt     DateTime?
+  reviewComment  String?             @db.VarChar(500)
+  createdAt      DateTime            @default(now())
 
-  employee        Employee           @relation(fields: [employeeId], references: [id])
-  requestedBy     User               @relation("ChangeRequestRequester", fields: [requestedById], references: [id])
-  reviewedBy      User?              @relation("ChangeRequestReviewer", fields: [reviewedById], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  requestedBy User     @relation("ChangeRequestRequester", fields: [requestedById], references: [id])
+  reviewedBy  User?    @relation("ChangeRequestReviewer", fields: [reviewedById], references: [id])
 
   @@index([status])
   @@index([employeeId])
 }
 
 model Document {
-  id              String          @id @default(uuid()) @db.VarChar(36)
-  employeeId      String          @db.VarChar(36)
-  category        DocumentCategory
-  title           String          @db.VarChar(150)
-  originalFilename String         @db.VarChar(255)
-  storageKey      String          @unique @db.VarChar(100)
-  mimeType        String          @db.VarChar(100)
-  sizeBytes       Int
-  status          DocumentStatus  @default(PENDING)
-  sensitivity     SensitivityLevel @default(CONFIDENTIAL)
-  version         Int             @default(1)
-  expiryDate      DateTime?       @db.Date
-  retentionStatus RetentionStatus @default(ACTIVE)
-  uploadedById    String          @db.VarChar(36)
-  verifiedById    String?         @db.VarChar(36)
-  verifiedAt      DateTime?
-  verificationNote String?        @db.VarChar(500)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id               String           @id @default(uuid()) @db.VarChar(36)
+  employeeId       String           @db.VarChar(36)
+  category         DocumentCategory
+  title            String           @db.VarChar(150)
+  originalFilename String           @db.VarChar(255)
+  storageKey       String           @unique @db.VarChar(100)
+  mimeType         String           @db.VarChar(100)
+  sizeBytes        Int
+  status           DocumentStatus   @default(PENDING)
+  sensitivity      SensitivityLevel @default(CONFIDENTIAL)
+  version          Int              @default(1)
+  expiryDate       DateTime?        @db.Date
+  retentionStatus  RetentionStatus  @default(ACTIVE)
+  uploadedById     String           @db.VarChar(36)
+  verifiedById     String?          @db.VarChar(36)
+  verifiedAt       DateTime?
+  verificationNote String?          @db.VarChar(500)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  employee        Employee        @relation(fields: [employeeId], references: [id])
-  uploadedBy      User            @relation("DocumentUploader", fields: [uploadedById], references: [id])
-  verifiedBy      User?           @relation("DocumentVerifier", fields: [verifiedById], references: [id])
+  employee      Employee               @relation(fields: [employeeId], references: [id])
+  uploadedBy    User                   @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  verifiedBy    User?                  @relation("DocumentVerifier", fields: [verifiedById], references: [id])
+  leaveRequests LeaveRequestDocument[]
+  contracts     Contract[]
 
   @@index([employeeId, status])
   @@index([expiryDate])
 }
 
 model Notification {
-  id               String              @id @default(uuid()) @db.VarChar(36)
-  recipientUserId  String              @db.VarChar(36)
-  eventType        String              @db.VarChar(80)
-  title            String              @db.VarChar(150)
-  safeSummary      String              @db.VarChar(500)
-  relatedEntityType String?            @db.VarChar(50)
-  relatedEntityId  String?             @db.VarChar(36)
-  priority         NotificationPriority @default(NORMAL)
-  createdAt        DateTime            @default(now())
-  readAt           DateTime?
-  expiresAt        DateTime?
+  id                String               @id @default(uuid()) @db.VarChar(36)
+  recipientUserId   String               @db.VarChar(36)
+  eventType         String               @db.VarChar(80)
+  title             String               @db.VarChar(150)
+  safeSummary       String               @db.VarChar(500)
+  relatedEntityType String?              @db.VarChar(50)
+  relatedEntityId   String?              @db.VarChar(36)
+  priority          NotificationPriority @default(NORMAL)
+  createdAt         DateTime             @default(now())
+  readAt            DateTime?
+  expiresAt         DateTime?
 
-  recipient        User                @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+  recipient User @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
 
   @@index([recipientUserId, readAt])
 }
 
 model AuditEvent {
-  id           String   @id @default(uuid()) @db.VarChar(36)
-  actorUserId  String?  @db.VarChar(36)
-  actorLabel   String?  @db.VarChar(120)
-  action       String   @db.VarChar(80)
-  entityType   String   @db.VarChar(50)
-  entityId     String?  @db.VarChar(36)
-  reason       String?  @db.VarChar(500)
-  before       Json?
-  after        Json?
-  ipAddress    String?  @db.VarChar(45)
-  userAgent    String?  @db.VarChar(300)
-  createdAt    DateTime @default(now())
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  actorUserId String?  @db.VarChar(36)
+  actorLabel  String?  @db.VarChar(120)
+  action      String   @db.VarChar(80)
+  entityType  String   @db.VarChar(50)
+  entityId    String?  @db.VarChar(36)
+  reason      String?  @db.VarChar(500)
+  before      Json?
+  after       Json?
+  ipAddress   String?  @db.VarChar(45)
+  userAgent   String?  @db.VarChar(300)
+  createdAt   DateTime @default(now())
 
-  actor        User?    @relation(fields: [actorUserId], references: [id])
+  actor User? @relation(fields: [actorUserId], references: [id])
 
   @@index([actorUserId, createdAt])
   @@index([action, createdAt])
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+model LeaveType {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  code             String   @unique @db.VarChar(16)
+  name             String   @db.VarChar(120)
+  description      String?  @db.Text
+  requiresReason   Boolean  @default(false)
+  requiresEvidence Boolean  @default(false)
+  requiresHrReview Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  policies LeavePolicy[]
+  balances LeaveBalance[]
+  requests LeaveRequest[]
+}
+
+model LeavePolicy {
+  id                   String   @id @default(uuid()) @db.VarChar(36)
+  leaveTypeId          String   @db.VarChar(36)
+  period               String   @db.VarChar(10)
+  entitlementDays      Float    @default(0)
+  carryoverCapDays     Float    @default(0)
+  maxConsecutiveDays   Int      @default(365)
+  minNoticeDays        Int      @default(0)
+  allowNegativeBalance Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([leaveTypeId, period])
+  @@index([period])
+}
+
+model LeaveBalance {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  employeeId      String   @db.VarChar(36)
+  leaveTypeId     String   @db.VarChar(36)
+  period          String   @db.VarChar(10)
+  entitlementDays Float    @default(0)
+  carryoverDays   Float    @default(0)
+  usedDays        Float    @default(0)
+  adjustmentDays  Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  employee    Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType   LeaveType                @relation(fields: [leaveTypeId], references: [id])
+  adjustments LeaveBalanceAdjustment[]
+
+  @@unique([employeeId, leaveTypeId, period])
+  @@index([period])
+}
+
+model LeaveBalanceAdjustment {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  balanceId   String   @db.VarChar(36)
+  delta       Float
+  reason      String   @db.VarChar(500)
+  createdById String   @db.VarChar(36)
+  createdAt   DateTime @default(now())
+
+  balance   LeaveBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
+  createdBy User         @relation("LeaveBalanceAdjuster", fields: [createdById], references: [id])
+
+  @@index([balanceId, createdAt])
+}
+
+model WorkflowInstance {
+  id          String         @id @default(uuid()) @db.VarChar(36)
+  entityType  String         @db.VarChar(50)
+  entityId    String         @db.VarChar(36)
+  status      WorkflowStatus @default(PENDING)
+  currentStep Int            @default(1)
+  startedAt   DateTime?
+  completedAt DateTime?
+  canceledAt  DateTime?
+  createdAt   DateTime       @default(now())
+
+  steps         WorkflowStep[]
+  leaveRequests LeaveRequest[]
+
+  @@unique([entityType, entityId])
+  @@index([status])
+}
+
+model WorkflowStep {
+  id              String             @id @default(uuid()) @db.VarChar(36)
+  instanceId      String             @db.VarChar(36)
+  stepOrder       Int
+  name            String             @db.VarChar(120)
+  approverRoleKey String?            @db.VarChar(60)
+  approverUserId  String?            @db.VarChar(36)
+  scopeType       ScopeType?
+  scopeUnitId     String?            @db.VarChar(36)
+  status          WorkflowStepStatus @default(PENDING)
+  decision        String?            @db.VarChar(40)
+  comment         String?            @db.Text
+  actorUserId     String?            @db.VarChar(36)
+  actedAt         DateTime?
+  dueAt           DateTime?
+  createdAt       DateTime           @default(now())
+
+  instance WorkflowInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  actor    User?            @relation("WorkflowStepActor", fields: [actorUserId], references: [id])
+
+  @@unique([instanceId, stepOrder])
+  @@index([status])
+}
+
+model LeaveRequest {
+  id                 String             @id @default(uuid()) @db.VarChar(36)
+  employeeId         String             @db.VarChar(36)
+  leaveTypeId        String             @db.VarChar(36)
+  period             String             @db.VarChar(10)
+  requestedById      String             @db.VarChar(36)
+  startDate          DateTime           @db.Date
+  endDate            DateTime           @db.Date
+  daysRequested      Float
+  reason             String?            @db.Text
+  isHalfDay          Boolean            @default(false)
+  status             LeaveRequestStatus @default(DRAFT)
+  submittedAt        DateTime?
+  decidedAt          DateTime?
+  decidedById        String?            @db.VarChar(36)
+  decisionComment    String?            @db.Text
+  workflowInstanceId String?            @db.VarChar(36)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  employee    Employee               @relation(fields: [employeeId], references: [id])
+  leaveType   LeaveType              @relation(fields: [leaveTypeId], references: [id])
+  requestedBy User                   @relation("LeaveRequestRequester", fields: [requestedById], references: [id])
+  decidedBy   User?                  @relation("LeaveRequestDecider", fields: [decidedById], references: [id])
+  workflow    WorkflowInstance?      @relation(fields: [workflowInstanceId], references: [id], onDelete: SetNull)
+  documents   LeaveRequestDocument[]
+  hrRequests  HrRequest[]
+
+  @@index([employeeId, startDate])
+  @@index([status, submittedAt])
+  @@index([leaveTypeId, period])
+}
+
+model LeaveRequestDocument {
+  leaveRequestId String @db.VarChar(36)
+  documentId     String @db.VarChar(36)
+
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  document     Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([leaveRequestId, documentId])
+}
+
+model HrRequest {
+  id                     String            @id @default(uuid()) @db.VarChar(36)
+  reference              String            @unique @db.VarChar(20)
+  requesterEmployeeId    String            @db.VarChar(36)
+  requestedForEmployeeId String?           @db.VarChar(36)
+  category               HrRequestCategory
+  subject                String            @db.VarChar(150)
+  description            String            @db.Text
+  sensitivity            SensitivityLevel  @default(INTERNAL)
+  status                 HrRequestStatus   @default(OPEN)
+  assignedToUserId       String?           @db.VarChar(36)
+  dueAt                  DateTime?
+  resolvedAt             DateTime?
+  closedAt               DateTime?
+  feedbackRating         Int?
+  feedbackComment        String?           @db.Text
+  relatedLeaveRequestId  String?           @db.VarChar(36)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  requester           Employee         @relation("HrRequestRequester", fields: [requesterEmployeeId], references: [id])
+  requestedFor        Employee?        @relation("HrRequestSubject", fields: [requestedForEmployeeId], references: [id])
+  assignee            User?            @relation("HrRequestAssignee", fields: [assignedToUserId], references: [id])
+  relatedLeaveRequest LeaveRequest?    @relation(fields: [relatedLeaveRequestId], references: [id], onDelete: SetNull)
+  events              HrRequestEvent[]
+
+  @@index([status, createdAt])
+  @@index([assignedToUserId, status])
+  @@index([category])
+}
+
+model HrRequestEvent {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  requestId   String   @db.VarChar(36)
+  actorUserId String?  @db.VarChar(36)
+  action      String   @db.VarChar(80)
+  comment     String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  request HrRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actor   User?     @relation("HrRequestEventActor", fields: [actorUserId], references: [id])
+
+  @@index([requestId, createdAt])
+}
+
+model Contract {
+  id            String                @id @default(uuid()) @db.VarChar(36)
+  employeeId    String                @db.VarChar(36)
+  type          ContractType
+  status        ContractStatus        @default(DRAFT)
+  renewalStatus ContractRenewalStatus @default(NONE)
+  startDate     DateTime              @db.Date
+  endDate       DateTime?             @db.Date
+  documentId    String?               @db.VarChar(36)
+  notes         String?               @db.Text
+  createdById   String?               @db.VarChar(36)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  employee  Employee  @relation(fields: [employeeId], references: [id])
+  document  Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  createdBy User?     @relation("ContractCreator", fields: [createdById], references: [id])
+
+  @@index([employeeId, status])
+  @@index([endDate])
+  @@index([renewalStatus])
+}
+
+model ProbationRecord {
+  id           String           @id @default(uuid()) @db.VarChar(36)
+  employeeId   String           @db.VarChar(36)
+  startDate    DateTime         @db.Date
+  endDate      DateTime         @db.Date
+  reviewDate   DateTime         @db.Date
+  outcome      ProbationOutcome @default(PENDING)
+  notes        String?          @db.Text
+  reviewedById String?          @db.VarChar(36)
+  reviewedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  reviewedBy User?    @relation("ProbationReviewer", fields: [reviewedById], references: [id])
+
+  @@index([employeeId, outcome])
+  @@index([reviewDate])
+}
+
+model Reminder {
+  id              String         @id @default(uuid()) @db.VarChar(36)
+  type            ReminderType
+  entityType      String         @db.VarChar(50)
+  entityId        String         @db.VarChar(36)
+  recipientUserId String         @db.VarChar(36)
+  dueDate         DateTime       @db.Date
+  status          ReminderStatus @default(PENDING)
+  message         String         @db.VarChar(500)
+  createdAt       DateTime       @default(now())
+  sentAt          DateTime?
+
+  recipient User @relation("ReminderRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@unique([type, entityId, dueDate, recipientUserId])
+  @@index([status, dueDate])
+}
+
+model OnboardingTemplate {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  code        String   @unique @db.VarChar(16)
+  name        String   @db.VarChar(120)
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tasks      OnboardingTemplateTask[]
+  checklists OnboardingChecklist[]
+}
+
+model OnboardingTemplateTask {
+  id            String  @id @default(uuid()) @db.VarChar(36)
+  templateId    String  @db.VarChar(36)
+  title         String  @db.VarChar(150)
+  description   String? @db.Text
+  ownerRoleKey  String  @db.VarChar(60)
+  dueOffsetDays Int     @default(0)
+  isRequired    Boolean @default(true)
+  sortOrder     Int     @default(0)
+
+  template OnboardingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tasks    OnboardingTask[]
+
+  @@index([templateId, sortOrder])
+}
+
+model OnboardingChecklist {
+  id          String           @id @default(uuid()) @db.VarChar(36)
+  employeeId  String           @db.VarChar(36)
+  templateId  String           @db.VarChar(36)
+  status      OnboardingStatus @default(PENDING)
+  dueDate     DateTime?        @db.Date
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  employee Employee           @relation(fields: [employeeId], references: [id])
+  template OnboardingTemplate @relation(fields: [templateId], references: [id])
+  tasks    OnboardingTask[]
+
+  @@index([employeeId, status])
+}
+
+model OnboardingTask {
+  id             String               @id @default(uuid()) @db.VarChar(36)
+  checklistId    String               @db.VarChar(36)
+  templateTaskId String?              @db.VarChar(36)
+  title          String               @db.VarChar(150)
+  description    String?              @db.Text
+  ownerUserId    String?              @db.VarChar(36)
+  dueDate        DateTime?            @db.Date
+  status         OnboardingTaskStatus @default(PENDING)
+  comment        String?              @db.Text
+  completedAt    DateTime?
+  completedById  String?              @db.VarChar(36)
+  sortOrder      Int                  @default(0)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  checklist    OnboardingChecklist     @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  templateTask OnboardingTemplateTask? @relation(fields: [templateTaskId], references: [id], onDelete: SetNull)
+  owner        User?                   @relation("OnboardingTaskOwner", fields: [ownerUserId], references: [id])
+  completedBy  User?                   @relation("OnboardingTaskCompleter", fields: [completedById], references: [id])
+
+  @@index([checklistId, sortOrder])
+  @@index([status, dueDate])
+}
+
+model Delegation {
+  id             String           @id @default(uuid()) @db.VarChar(36)
+  grantorUserId  String           @db.VarChar(36)
+  delegateUserId String           @db.VarChar(36)
+  permissionKey  String           @db.VarChar(80)
+  scopeType      ScopeType
+  scopeUnitId    String?          @db.VarChar(36)
+  startDate      DateTime         @db.Date
+  endDate        DateTime?        @db.Date
+  reason         String           @db.VarChar(500)
+  status         DelegationStatus @default(ACTIVE)
+  revokedAt      DateTime?
+  revokedById    String?          @db.VarChar(36)
+  createdAt      DateTime         @default(now())
+
+  grantor   User     @relation("DelegationGrantor", fields: [grantorUserId], references: [id])
+  delegate  User     @relation("DelegationDelegate", fields: [delegateUserId], references: [id])
+  revokedBy User?    @relation("DelegationRevoker", fields: [revokedById], references: [id])
+  scopeUnit OrgUnit? @relation("DelegationScopeUnit", fields: [scopeUnitId], references: [id])
+
+  @@index([delegateUserId, status])
+  @@index([permissionKey])
 }
 
 enum UserStatus {
@@ -472,4 +852,108 @@ enum ChangeRequestStatus {
 enum NotificationPriority {
   NORMAL
   HIGH
+}
+
+enum LeaveRequestStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_HR
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum WorkflowStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum WorkflowStepStatus {
+  PENDING
+  ACTIVE
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+enum HrRequestCategory {
+  GENERAL
+  IT
+  FACILITIES
+  PAYROLL
+  LEAVE_SUPPORT
+  COMPLAINT
+  OTHER
+}
+
+enum HrRequestStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ContractType {
+  PERMANENT
+  FIXED_TERM
+  PROBATION
+  VISITING
+  ADJUNCT
+  PROJECT
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  RENEWED
+  TERMINATED
+}
+
+enum ContractRenewalStatus {
+  NONE
+  DUE
+  RENEWED
+  EXPIRED
+}
+
+enum ProbationOutcome {
+  PENDING
+  CONFIRMED
+  EXTENDED
+  TERMINATED
+}
+
+enum ReminderType {
+  CONTRACT_EXPIRY
+  PROBATION_REVIEW
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  DISMISSED
+}
+
+enum OnboardingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum OnboardingTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+}
+
+enum DelegationStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
 }

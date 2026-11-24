@@ -9,6 +9,7 @@ interface NavItem {
   to: string;
   label: string;
   permission?: string;
+  anyPermission?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -17,9 +18,14 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/employees', label: 'Employees', permission: 'employee.view' },
   { to: '/organization', label: 'Organization', permission: 'org.view' },
   { to: '/documents', label: 'Documents', permission: 'document.view' },
+  { to: '/leave', label: 'Leave', permission: 'leave.view' },
+  { to: '/requests', label: 'HR requests', permission: 'request.view' },
+  { to: '/contracts', label: 'Contracts', permission: 'contract.view' },
+  { to: '/onboarding', label: 'Onboarding', permission: 'onboarding.view' },
   { to: '/notifications', label: 'Notifications' },
   { to: '/audit', label: 'Audit trail', permission: 'audit.view' },
   { to: '/access', label: 'Access control', permission: 'user.manage' },
+  { to: '/delegations', label: 'Delegations', anyPermission: ['role.manage', 'access.delegate'] },
 ];
 
 function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
@@ -76,7 +82,13 @@ export default function Layout() {
     queryFn: () => api<{ count: number }>('/notifications/unread-count'),
   });
 
-  const items = NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission));
+  const rolesAvailable = Boolean(session && session.permissions.length > 0);
+  const items = NAV_ITEMS.filter((item) => {
+    if (item.anyPermission) {
+      return !rolesAvailable || item.anyPermission.some((permission) => hasPermission(permission));
+    }
+    return !item.permission || hasPermission(item.permission);
+  });
 
   return (
     <div className="min-h-screen lg:flex">

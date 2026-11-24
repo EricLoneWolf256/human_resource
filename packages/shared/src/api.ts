@@ -1,19 +1,31 @@
 import type {
   AssignmentType,
   ChangeRequestStatus,
+  ContractRenewalStatus,
+  ContractStatus,
+  ContractType,
+  DelegationStatus,
   DocumentCategory,
   DocumentStatus,
   EmploymentStatus,
   EmploymentType,
+  HrRequestCategory,
+  HrRequestStatus,
+  LeaveRequestStatus,
   NotificationPriority,
+  OnboardingStatus,
+  OnboardingTaskStatus,
   OrgUnitType,
   PositionStatus,
+  ProbationOutcome,
   ProfileStatus,
+  ReminderType,
   RetentionStatus,
   ScopeType,
   SensitivityLevel,
   UnitStatus,
   UserStatus,
+  WorkflowStepStatus,
 } from './enums.js';
 
 export interface ApiErrorBody {
@@ -285,12 +297,220 @@ export interface DashboardPayload {
     pendingChangeRequests: number;
     documentCount: number;
   } | null;
+  phase2: {
+    pendingLeaveApprovals: number | null;
+    openHrRequests: number | null;
+    expiringContracts: number | null;
+    probationReviewsDue: number | null;
+    onboardingCompletion: { completed: number; total: number } | null;
+  } | null;
   admin: {
     usersByStatus: Record<string, number>;
     activeRoleAssignments: number;
     expiringAssignments7d: number;
     recentAudit: AuditEventDto[];
   } | null;
+}
+
+export interface LeaveTypeDto {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  requiresReason: boolean;
+  requiresEvidence: boolean;
+  requiresHrReview: boolean;
+  isActive: boolean;
+  policies: LeavePolicyDto[];
+}
+
+export interface LeavePolicyDto {
+  id: string;
+  leaveTypeId: string;
+  period: string;
+  entitlementDays: number;
+  carryoverCapDays: number;
+  maxConsecutiveDays: number;
+  minNoticeDays: number;
+  allowNegativeBalance: boolean;
+}
+
+export interface LeaveBalanceDto {
+  id: string;
+  employeeId: string;
+  leaveTypeId: string;
+  leaveTypeName: string;
+  period: string;
+  entitlementDays: number;
+  carryoverDays: number;
+  usedDays: number;
+  adjustmentDays: number;
+  availableDays: number;
+}
+
+export interface WorkflowStepDto {
+  id: string;
+  stepOrder: number;
+  name: string;
+  approverRoleKey: string | null;
+  approverName: string | null;
+  status: WorkflowStepStatus;
+  decision: string | null;
+  comment: string | null;
+  actedAt: string | null;
+  dueAt: string | null;
+}
+
+export interface LeaveRequestDto {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  staffNumber: string;
+  leaveTypeId: string;
+  leaveTypeName: string;
+  startDate: string;
+  endDate: string;
+  daysRequested: number;
+  reason: string | null;
+  isHalfDay: boolean;
+  status: LeaveRequestStatus;
+  submittedAt: string | null;
+  decidedAt: string | null;
+  decisionComment: string | null;
+  createdAt: string;
+  steps: WorkflowStepDto[];
+  documentIds: string[];
+}
+
+export interface HrRequestDto {
+  id: string;
+  reference: string;
+  requesterEmployeeId: string;
+  requesterName: string;
+  requestedForEmployeeId: string | null;
+  category: HrRequestCategory;
+  subject: string;
+  description: string;
+  sensitivity: SensitivityLevel;
+  status: HrRequestStatus;
+  assignedToUserId: string | null;
+  assignedToName: string | null;
+  dueAt: string | null;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  feedbackRating: number | null;
+  isRestricted: boolean;
+  createdAt: string;
+  events: {
+    id: string;
+    action: string;
+    comment: string | null;
+    actorName: string | null;
+    createdAt: string;
+  }[];
+}
+
+export interface ContractDto {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  type: ContractType;
+  status: ContractStatus;
+  renewalStatus: ContractRenewalStatus;
+  startDate: string;
+  endDate: string | null;
+  documentId: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface ProbationRecordDto {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  startDate: string;
+  endDate: string;
+  reviewDate: string;
+  outcome: ProbationOutcome;
+  notes: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+}
+
+export interface OnboardingTemplateDto {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  tasks: {
+    id: string;
+    title: string;
+    description: string | null;
+    ownerRoleKey: string;
+    dueOffsetDays: number;
+    isRequired: boolean;
+    sortOrder: number;
+  }[];
+}
+
+export interface OnboardingTaskDto {
+  id: string;
+  checklistId: string;
+  templateTaskId: string | null;
+  title: string;
+  description: string | null;
+  ownerUserId: string | null;
+  ownerName: string | null;
+  dueDate: string | null;
+  status: OnboardingTaskStatus;
+  comment: string | null;
+  completedAt: string | null;
+  sortOrder: number;
+}
+
+export interface OnboardingChecklistDto {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  templateId: string;
+  templateName: string;
+  status: OnboardingStatus;
+  dueDate: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  tasks: OnboardingTaskDto[];
+}
+
+export interface ReminderDto {
+  id: string;
+  type: ReminderType;
+  entityType: string;
+  entityId: string;
+  recipientUserId: string;
+  recipientName: string;
+  dueDate: string;
+  status: 'PENDING' | 'SENT' | 'DISMISSED';
+  message: string;
+  createdAt: string;
+  sentAt: string | null;
+}
+
+export interface DelegationDto {
+  id: string;
+  grantorUserId: string;
+  grantorName: string;
+  delegateUserId: string;
+  delegateName: string;
+  permissionKey: string;
+  scopeType: ScopeType;
+  scopeUnitId: string | null;
+  scopeUnitName: string | null;
+  startDate: string;
+  endDate: string | null;
+  reason: string;
+  status: DelegationStatus;
+  revokedAt: string | null;
 }
 
 export const ERROR_CODES = {

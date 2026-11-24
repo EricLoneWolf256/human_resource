@@ -12,6 +12,11 @@ import DocumentsPage from './pages/DocumentsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import AuditPage from './pages/AuditPage';
 import AccessPage from './pages/AccessPage';
+import LeavePage from './pages/LeavePage';
+import RequestsPage from './pages/RequestsPage';
+import ContractsPage from './pages/ContractsPage';
+import OnboardingPage from './pages/OnboardingPage';
+import DelegationsPage from './pages/DelegationsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 function RequireAuth() {
@@ -42,6 +47,11 @@ export default function App() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="audit" element={<AuditPage />} />
         <Route path="access" element={<AccessPage />} />
+        <Route path="leave" element={<LeavePage />} />
+        <Route path="requests" element={<RequestsPage />} />
+        <Route path="contracts" element={<ContractsPage />} />
+        <Route path="onboarding" element={<OnboardingPage />} />
+        <Route path="delegations" element={<DelegationsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

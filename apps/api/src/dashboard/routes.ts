@@ -121,6 +121,66 @@ router.get(
       };
     }
 
+    const restrictedRequestVisibility = hasPermission(ctx, 'complaint.assign') ||
+      hasPermission(ctx, 'complaint.investigate') ||
+      hasPermission(ctx, 'complaint.close') ||
+      hasPermission(ctx, 'complaint.view_assigned')
+      ? {}
+      : {
+          OR: [
+            { sensitivity: { not: 'HIGHLY_RESTRICTED' as const } },
+            { sensitivity: 'HIGHLY_RESTRICTED' as const, assignedToUserId: ctx.userId },
+          ],
+        };
+
+    const [pendingLeaveApprovals, openHrRequests, expiringContractCount, probationReviewsDue, checklistRows] =
+      await Promise.all([
+        hasPermission(ctx, 'leave.approve')
+          ? prisma.leaveRequest.count({
+              where: {
+                status: { in: ['SUBMITTED', 'PENDING_HR'] },
+                employee: employeeWhere(ctx, 'leave.approve'),
+              },
+            })
+          : Promise.resolve(null),
+        hasPermission(ctx, 'request.view')
+          ? prisma.hrRequest.count({
+              where: {
+                AND: [
+                  { status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS'] } },
+                  { requester: employeeWhere(ctx, 'request.view') },
+                  restrictedRequestVisibility,
+                ],
+              },
+            })
+          : Promise.resolve(null),
+        hasPermission(ctx, 'contract.view')
+          ? prisma.contract.count({
+              where: {
+                status: 'ACTIVE',
+                endDate: { gte: today(), lte: addDays(today(), 90) },
+                employee: employeeWhere(ctx, 'contract.view'),
+              },
+            })
+          : Promise.resolve(null),
+        hasPermission(ctx, 'probation.view')
+          ? prisma.probationRecord.count({
+              where: {
+                outcome: 'PENDING',
+                reviewDate: { gte: today(), lte: addDays(today(), 30) },
+                employee: employeeWhere(ctx, 'probation.view'),
+              },
+            })
+          : Promise.resolve(null),
+        hasPermission(ctx, 'onboarding.view')
+          ? prisma.onboardingChecklist.groupBy({
+              by: ['status'],
+              where: { employee: employeeWhere(ctx, 'onboarding.view') },
+              _count: { _all: true },
+            })
+          : Promise.resolve(null),
+      ]);
+
     let admin: DashboardPayload['admin'] = null;
     if (hasPermission(ctx, 'user.manage') || hasPermission(ctx, 'audit.view')) {
       const sevenDays = addDays(today(), 7);
@@ -167,6 +227,20 @@ router.get(
       expiringContracts,
       recentHires,
       profile,
+      phase2: {
+        pendingLeaveApprovals,
+        openHrRequests,
+        expiringContracts: expiringContractCount,
+        probationReviewsDue,
+        onboardingCompletion: checklistRows
+          ? {
+              completed: checklistRows
+                .filter((row) => row.status === 'COMPLETED')
+                .reduce((sum, row) => sum + row._count._all, 0),
+              total: checklistRows.reduce((sum, row) => sum + row._count._all, 0),
+            }
+          : null,
+      },
       admin,
     };
     res.json(payload);

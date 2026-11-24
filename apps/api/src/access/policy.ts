@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import type { ScopeType } from '@umu-hr/shared';
+import { isPermissionKey, type ScopeType } from '@umu-hr/shared';
 import type { Db } from '../db.js';
 import { today } from '../dates.js';
 import type { AuthContext, AuthUserSafe, EffectiveGrant } from '../auth/context.js';
@@ -16,13 +16,27 @@ export async function buildAccessContext(
   ipAddress: string | null,
   userAgent: string | null,
 ): Promise<AuthContext> {
-  const [assignmentRows, allUnits] = await Promise.all([
+  const [assignmentRows, delegationRows, allUnits] = await Promise.all([
     db.roleAssignment.findMany({
       where: { userId: user.id, revokedAt: null },
       include: {
         role: { include: { permissions: true } },
         scopeUnit: { select: { id: true, name: true } },
         assignedBy: { select: { email: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    }),
+    db.delegation.findMany({
+      where: {
+        delegateUserId: user.id,
+        status: 'ACTIVE',
+        revokedAt: null,
+        startDate: { lte: today() },
+        OR: [{ endDate: null }, { endDate: { gte: today() } }],
+      },
+      include: {
+        scopeUnit: { select: { id: true, name: true } },
+        grantor: { select: { email: true } },
       },
       orderBy: { createdAt: 'asc' },
     }),
@@ -53,6 +67,11 @@ export async function buildAccessContext(
     return [...result];
   }
 
+  function scopeUnitIdsFor(type: ScopeType, scopeUnitId: string | null): string[] {
+    if ((type === 'DEPARTMENT' || type === 'FACULTY') && scopeUnitId) return withDescendants(scopeUnitId);
+    return [];
+  }
+
   const employeeId = user.employeeId;
   const [reportRows, headedUnits] = employeeId
     ? await Promise.all([
@@ -81,12 +100,6 @@ export async function buildAccessContext(
   const now = today();
   const grants: EffectiveGrant[] = assignmentRows.map((row) => {
     const scopeType: ScopeType = row.scopeType;
-    const scopeUnitIds =
-      scopeType === 'DEPARTMENT' && row.scopeUnitId
-        ? withDescendants(row.scopeUnitId)
-        : scopeType === 'FACULTY' && row.scopeUnitId
-          ? withDescendants(row.scopeUnitId)
-          : [];
     const scopeEmployeeIds =
       scopeType === 'OWN' && employeeId
         ? [employeeId]
@@ -108,12 +121,42 @@ export async function buildAccessContext(
       assignedByName: row.assignedBy?.email ?? null,
       reason: row.reason,
       permissions: new Set(row.role.permissions.map((permission) => permission.permissionKey)),
-      scopeUnitIds,
+      scopeUnitIds: scopeUnitIdsFor(scopeType, row.scopeUnitId),
       scopeEmployeeIds,
       all: scopeType === 'INSTITUTION',
       effective: row.startDate <= now && (row.endDate === null || row.endDate >= now),
     };
   });
+
+  for (const delegation of delegationRows) {
+    if (!isPermissionKey(delegation.permissionKey)) continue;
+    const scopeType: ScopeType = delegation.scopeType;
+    const scopeEmployeeIds =
+      scopeType === 'OWN' && employeeId
+        ? [employeeId]
+        : scopeType === 'TEAM'
+          ? directReports
+          : scopeType === 'ASSIGNED'
+            ? [...new Set([...directReports, ...headedEmployeeIds])]
+            : [];
+    grants.push({
+      assignmentId: `delegation:${delegation.id}`,
+      roleKey: `DELEGATION:${delegation.permissionKey}`,
+      roleName: `Delegated: ${delegation.permissionKey}`,
+      scopeType,
+      scopeUnitId: delegation.scopeUnitId,
+      scopeUnitName: delegation.scopeUnit?.name ?? null,
+      startDate: delegation.startDate,
+      endDate: delegation.endDate,
+      assignedByName: delegation.grantor.email,
+      reason: delegation.reason,
+      permissions: new Set([delegation.permissionKey]),
+      scopeUnitIds: scopeUnitIdsFor(scopeType, delegation.scopeUnitId),
+      scopeEmployeeIds,
+      all: scopeType === 'INSTITUTION',
+      effective: true,
+    });
+  }
 
   const permissions = new Set<string>();
   for (const grant of grants) {

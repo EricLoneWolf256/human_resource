@@ -13,6 +13,12 @@ import employeesRouter, { changeRequestRouter } from './employees/routes.js';
 import documentsRouter from './documents/routes.js';
 import notificationsRouter from './notifications/routes.js';
 import dashboardRouter from './dashboard/routes.js';
+import leaveRouter from './leave/routes.js';
+import requestsRouter from './requests/routes.js';
+import contractsRouter from './contracts/routes.js';
+import onboardingRouter from './onboarding/routes.js';
+import remindersRouter from './reminders/routes.js';
+import delegationRouter from './delegation/routes.js';
 
 export function createApp() {
   const app = express();
@@ -55,6 +61,12 @@ export function createApp() {
   app.use('/api/documents', documentsRouter);
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/dashboard', dashboardRouter);
+  app.use('/api/leave', leaveRouter);
+  app.use('/api/requests', requestsRouter);
+  app.use('/api/contracts', contractsRouter);
+  app.use('/api/onboarding', onboardingRouter);
+  app.use('/api/reminders', remindersRouter);
+  app.use('/api/delegations', delegationRouter);
   app.use('/api', auditRouter);
 
   app.use('/api', (_req, _res, next) => next(notFound('Endpoint not found')));
