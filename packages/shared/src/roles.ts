@@ -9,6 +9,33 @@ export interface RoleDefinition {
   permissions: readonly PermissionKey[];
 }
 
+const PHASE3_HR_OPERATIONS: readonly PermissionKey[] = [
+  'recruitment.view', 'recruitment.create', 'recruitment.manage', 'recruitment.approve',
+  'vacancy.publish', 'panel.manage', 'interview.manage', 'candidate.view', 'candidate.score', 'candidate.export',
+  'appraisal.view', 'appraisal.create', 'appraisal.review', 'appraisal.finalize',
+  'training.view', 'training.manage', 'training.approve',
+  'career.view', 'career.submit', 'promotion.review', 'promotion.approve',
+];
+
+const PHASE3_HR_OFFICER: readonly PermissionKey[] = [
+  'recruitment.view', 'recruitment.create', 'recruitment.manage',
+  'vacancy.publish', 'panel.manage', 'interview.manage', 'candidate.view', 'candidate.export',
+  'appraisal.view', 'appraisal.create', 'appraisal.review',
+  'training.view', 'training.manage', 'career.view', 'promotion.review',
+];
+
+const PHASE3_HR_READ: readonly PermissionKey[] = [
+  'recruitment.view', 'candidate.view', 'appraisal.view', 'training.view', 'career.view',
+];
+
+const PHASE3_MANAGER: readonly PermissionKey[] = [
+  'appraisal.view', 'appraisal.review', 'training.view', 'career.view', 'promotion.review',
+];
+
+const PHASE3_SELF_SERVICE: readonly PermissionKey[] = [
+  'appraisal.view', 'training.view', 'career.view', 'career.submit',
+];
+
 export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
   {
     key: 'SUPER_ADMIN',
@@ -26,6 +53,7 @@ export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
       'complaint.view_assigned', 'complaint.assign', 'complaint.investigate', 'complaint.close',
       'contract.view', 'contract.manage', 'probation.view', 'probation.manage',
       'onboarding.view', 'onboarding.manage', 'reminder.view',
+      ...PHASE3_HR_OPERATIONS,
     ],
   },
   {
@@ -57,6 +85,7 @@ export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
       'complaint.view_assigned', 'complaint.assign', 'complaint.investigate', 'complaint.close',
       'contract.view', 'contract.manage', 'probation.view', 'probation.manage',
       'onboarding.view', 'onboarding.manage', 'reminder.view',
+      ...PHASE3_HR_OPERATIONS,
     ],
   },
   {
@@ -74,6 +103,7 @@ export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
       'complaint.view_assigned', 'complaint.assign', 'complaint.investigate', 'complaint.close',
       'contract.view', 'contract.manage', 'probation.view', 'probation.manage',
       'onboarding.view', 'onboarding.manage', 'reminder.view',
+      ...PHASE3_HR_OPERATIONS,
     ],
   },
   {
@@ -91,6 +121,7 @@ export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
       'complaint.view_assigned', 'complaint.assign', 'complaint.investigate', 'complaint.close',
       'contract.view', 'contract.manage', 'probation.view', 'probation.manage',
       'onboarding.view', 'onboarding.manage', 'reminder.view',
+      ...PHASE3_HR_OFFICER,
     ],
   },
   {
@@ -108,6 +139,7 @@ export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
       'complaint.view_assigned', 'complaint.assign', 'complaint.investigate', 'complaint.close',
       'contract.view', 'contract.manage', 'probation.view', 'probation.manage',
       'onboarding.view', 'onboarding.manage', 'reminder.view',
+      ...PHASE3_HR_OFFICER,
     ],
   },
   {
@@ -123,6 +155,7 @@ export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
       'request.view', 'request.manage',
       'contract.view', 'contract.manage', 'probation.view', 'probation.manage',
       'onboarding.view', 'onboarding.manage', 'reminder.view',
+      ...PHASE3_HR_READ,
     ],
   },
   {
@@ -134,6 +167,7 @@ export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
       'employee.view', 'org.view', 'document.view', 'report.view',
       'leave.view', 'leave.approve', 'leave.reject',
       'request.view', 'contract.view', 'probation.view', 'onboarding.view', 'reminder.view',
+      ...PHASE3_MANAGER,
     ],
   },
   {
@@ -145,6 +179,7 @@ export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
       'employee.view', 'org.view', 'document.view', 'report.view',
       'leave.view', 'leave.approve', 'leave.reject',
       'request.view', 'contract.view', 'probation.view', 'onboarding.view', 'reminder.view',
+      ...PHASE3_MANAGER,
     ],
   },
   {
@@ -152,7 +187,10 @@ export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
     name: 'Supervisor / Line Manager',
     description: 'Direct-report records and approvals. No sensitive fields by default.',
     defaultScope: 'TEAM',
-    permissions: ['employee.view', 'org.view', 'leave.view', 'leave.approve', 'leave.reject', 'request.view', 'onboarding.view'],
+    permissions: [
+      'employee.view', 'org.view', 'leave.view', 'leave.approve', 'leave.reject', 'request.view', 'onboarding.view',
+      ...PHASE3_MANAGER,
+    ],
   },
   {
     key: 'INTERNAL_AUDITOR',
@@ -170,7 +208,45 @@ export const ROLE_CATALOGUE: readonly RoleDefinition[] = [
       'document.view', 'document.upload', 'document.download',
       'leave.submit', 'leave.view', 'request.submit', 'request.view', 'request.feedback',
       'contract.view', 'probation.view', 'onboarding.view',
+      ...PHASE3_SELF_SERVICE,
     ],
+  },
+  {
+    key: 'RECRUITMENT_OFFICER',
+    name: 'Recruitment Officer',
+    description: 'Runs requisitions, publication, screening and offers within assigned scope.',
+    defaultScope: 'INSTITUTION',
+    permissions: [
+      ...PHASE3_HR_OFFICER, 'recruitment.approve', 'appraisal.view', 'training.view', 'career.view',
+    ],
+  },
+  {
+    key: 'RECRUITMENT_PANEL_MEMBER',
+    name: 'Recruitment Panel Member',
+    description: 'Scores only candidates on vacancies to which the member is explicitly assigned.',
+    defaultScope: 'ASSIGNED',
+    permissions: ['candidate.view', 'candidate.score'],
+  },
+  {
+    key: 'TRAINING_OFFICER',
+    name: 'Training & Development Officer',
+    description: 'Maintains the training catalogue, requests, records and skills register.',
+    defaultScope: 'INSTITUTION',
+    permissions: ['employee.view', ...PHASE3_HR_OFFICER, 'training.approve'],
+  },
+  {
+    key: 'PERFORMANCE_OFFICER',
+    name: 'Performance Management Officer',
+    description: 'Coordinates appraisal cycles and validates completed appraisals.',
+    defaultScope: 'INSTITUTION',
+    permissions: ['employee.view', 'appraisal.view', 'appraisal.create', 'appraisal.review', 'appraisal.finalize'],
+  },
+  {
+    key: 'CAREER_OFFICER',
+    name: 'Career & Promotion Officer',
+    description: 'Reviews promotion, transfer and acting appointment cases.',
+    defaultScope: 'INSTITUTION',
+    permissions: ['employee.view', 'career.view', 'promotion.review', 'promotion.approve'],
   },
 ];
 

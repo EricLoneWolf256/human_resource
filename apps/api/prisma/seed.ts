@@ -1,4 +1,4 @@
-import { PERMISSIONS, ROLE_CATALOGUE } from '@umu-hr/shared';
+import { PERMISSIONS, ROLE_CATALOGUE, type ScopeType } from '@umu-hr/shared';
 import { config } from '../src/config.js';
 import { prisma } from '../src/db.js';
 import { hashPassword } from '../src/auth/password.js';
@@ -89,7 +89,7 @@ async function ensureEmployee(input: EmployeeSeed) {
 async function ensureUser(
   email: string,
   employeeId: string | null,
-  grants: { roleKey: string; scopeType: 'OWN' | 'DEPARTMENT' | 'FACULTY' | 'INSTITUTION'; scopeUnitId?: string | null }[],
+  grants: { roleKey: string; scopeType: ScopeType; scopeUnitId?: string | null }[],
   password: string,
 ) {
   const user = await prisma.user.upsert({
@@ -184,7 +184,7 @@ async function main() {
     });
     await prisma.rolePermission.deleteMany({ where: { roleId: stored.id } });
     await prisma.rolePermission.createMany({
-      data: role.permissions.map((permissionKey) => ({ roleId: stored.id, permissionKey })),
+      data: [...new Set(role.permissions)].map((permissionKey) => ({ roleId: stored.id, permissionKey })),
     });
   }
 
@@ -695,8 +695,235 @@ async function main() {
     message: 'Demo reminder: probation review is due in 14 days',
   });
 
+  const panelUser = await ensureUser('panel@umu.ac.mw', lecturer.id, [
+    { roleKey: 'RECRUITMENT_PANEL_MEMBER', scopeType: 'ASSIGNED' },
+  ], password);
+
+  const lecturerPosition = await prisma.position.findFirstOrThrow({
+    where: { unitId: computerScience.id, title: 'Lecturer' },
+  });
+  const closingDate = plusDays(45);
+  const vacancy = await prisma.vacancy.upsert({
+    where: { code: 'PHASE3-LECT' },
+    update: {
+      title: 'Lecturer (recruitment demo)',
+      description: 'Demo vacancy for the Phase 3 recruitment-to-onboarding workflow.',
+      requirements: 'Postgraduate qualification and teaching experience.',
+      unitId: computerScience.id,
+      positionId: lecturerPosition.id,
+      employmentType: 'PERMANENT',
+      openings: 1,
+      closingDate,
+      status: 'PUBLISHED',
+      publishedAt: now,
+      approvedById: adminUser.id,
+      createdById: adminUser.id,
+    },
+    create: {
+      code: 'PHASE3-LECT',
+      title: 'Lecturer (recruitment demo)',
+      description: 'Demo vacancy for the Phase 3 recruitment-to-onboarding workflow.',
+      requirements: 'Postgraduate qualification and teaching experience.',
+      unitId: computerScience.id,
+      positionId: lecturerPosition.id,
+      employmentType: 'PERMANENT',
+      openings: 1,
+      closingDate,
+      status: 'PUBLISHED',
+      publishedAt: now,
+      approvedById: adminUser.id,
+      createdById: adminUser.id,
+    },
+  });
+
+  await prisma.panelAssignment.upsert({
+    where: { vacancyId_userId: { vacancyId: vacancy.id, userId: panelUser.id } },
+    update: { role: 'CHAIR' },
+    create: { vacancyId: vacancy.id, userId: panelUser.id, role: 'CHAIR', createdById: adminUser.id },
+  });
+
+  const applicantEmail = 'candidate.demo@example.com';
+  let applicant = await prisma.applicant.findFirst({ where: { email: applicantEmail } });
+  if (!applicant) {
+    applicant = await prisma.applicant.create({
+      data: {
+        firstName: 'Candidate',
+        lastName: 'Demo',
+        email: applicantEmail,
+        phone: '+265 888 000 001',
+        coverNote: 'Interested in the lecturer position.',
+        qualifications: 'PhD in Computer Science',
+      },
+    });
+  }
+
+  let application = await prisma.application.findFirst({ where: { reference: 'APP-DEMO-0001' } });
+  if (!application) {
+    application = await prisma.application.create({
+      data: {
+        reference: 'APP-DEMO-0001',
+        vacancyId: vacancy.id,
+        applicantId: applicant.id,
+        status: 'SHORTLISTED',
+        submittedAt: plusDays(-10),
+        screeningNote: 'Meets the minimum requirements.',
+        events: {
+          create: [
+            { action: 'SUBMITTED', createdAt: plusDays(-10) },
+            { action: 'STATUS_CHANGED', note: 'Moved to screening', actorUserId: hrUser.id, createdAt: plusDays(-8) },
+            { action: 'STATUS_CHANGED', note: 'Shortlisted', actorUserId: hrUser.id, createdAt: plusDays(-5) },
+          ],
+        },
+      },
+    });
+  }
+
+  const interviewCount = await prisma.interview.count({ where: { applicationId: application.id } });
+  if (interviewCount === 0) {
+    const panelAssignment = await prisma.panelAssignment.findFirstOrThrow({ where: { vacancyId: vacancy.id } });
+    await prisma.interview.create({
+      data: {
+        applicationId: application.id,
+        panelAssignmentId: panelAssignment.id,
+        scheduledAt: plusDays(5),
+        location: 'Room A101',
+        note: 'Teaching demonstration and panel interview',
+        createdById: hrUser.id,
+      },
+    });
+  }
+
+  const scorecardCount = await prisma.scorecard.count({ where: { applicationId: application.id } });
+  if (scorecardCount === 0) {
+    const panelAssignment = await prisma.panelAssignment.findFirstOrThrow({ where: { vacancyId: vacancy.id } });
+    await prisma.scorecard.create({
+      data: {
+        applicationId: application.id,
+        panelAssignmentId: panelAssignment.id,
+        criteria: [
+          { name: 'Teaching experience', score: 4, comment: 'Strong track record' },
+          { name: 'Research potential', score: 4, comment: 'Good publication record' },
+        ],
+        recommendation: 'YES',
+        strengths: 'Clear communication and relevant experience.',
+        concerns: 'None',
+      },
+    });
+  }
+
+  const appraisalCycle = await prisma.appraisalCycle.upsert({
+    where: { code: 'PHASE3-2026' },
+    update: {
+      name: 'Phase 3 demo appraisal cycle',
+      templateType: 'ACADEMIC',
+      startDate: plusDays(-30),
+      endDate: plusDays(60),
+      status: 'OPEN',
+    },
+    create: {
+      code: 'PHASE3-2026',
+      name: 'Phase 3 demo appraisal cycle',
+      templateType: 'ACADEMIC',
+      startDate: plusDays(-30),
+      endDate: plusDays(60),
+      status: 'OPEN',
+      createdById: hrUser.id,
+    },
+  });
+
+  let appraisal = await prisma.appraisal.findFirst({
+    where: { cycleId: appraisalCycle.id, employeeId: lecturer.id },
+  });
+  if (!appraisal) {
+    appraisal = await prisma.appraisal.create({
+      data: {
+        cycleId: appraisalCycle.id,
+        employeeId: lecturer.id,
+        supervisorUserId: hodUser.id,
+        hodUserId: hodUser.id,
+        hrUserId: hrUser.id,
+        templateType: 'ACADEMIC',
+        status: 'SELF_REVIEW',
+        selfRating: 4,
+        selfComment: 'Delivered all teaching and research targets for the period.',
+        developmentPlan: 'Attend an advanced research methods workshop.',
+        submittedAt: plusDays(-3),
+        objectives: {
+          create: [
+            { title: 'Teaching quality', target: 'Maintain student evaluation above 4.0', weight: 60, selfRating: 4 },
+            { title: 'Research output', target: 'Submit two journal articles', weight: 40, selfRating: 4 },
+          ],
+        },
+      },
+    });
+  }
+
+  const trainingCourse = await prisma.trainingCourse.upsert({
+    where: { code: 'PHASE3-TEACH' },
+    update: {
+      title: 'Effective university teaching',
+      description: 'Demo course for the training workflow.',
+      category: 'PEDAGOGICAL',
+      provider: 'Centre for Teaching and Learning',
+      durationHours: 16,
+      isActive: true,
+    },
+    create: {
+      code: 'PHASE3-TEACH',
+      title: 'Effective university teaching',
+      description: 'Demo course for the training workflow.',
+      category: 'PEDAGOGICAL',
+      provider: 'Centre for Teaching and Learning',
+      durationHours: 16,
+      isActive: true,
+    },
+  });
+
+  let trainingRequest = await prisma.trainingRequest.findFirst({ where: { reference: 'TRN-DEMO-0001' } });
+  if (!trainingRequest) {
+    trainingRequest = await prisma.trainingRequest.create({
+      data: {
+        reference: 'TRN-DEMO-0001',
+        employeeId: probationEmployee.id,
+        courseId: trainingCourse.id,
+        reason: 'Required for the new teaching assignment.',
+        neededBy: plusDays(60),
+        status: 'RECOMMENDED',
+        supervisorComment: 'Recommended by the department.',
+        decidedById: hodUser.id,
+        decidedAt: plusDays(-2),
+      },
+    });
+  }
+
+  const historyPosition = await prisma.position.findFirstOrThrow({ where: { unitId: history.id, title: 'Lecturer' } });
+  let careerCase = await prisma.careerCase.findFirst({ where: { reference: 'CAR-DEMO-0001' } });
+  if (!careerCase) {
+    careerCase = await prisma.careerCase.create({
+      data: {
+        reference: 'CAR-DEMO-0001',
+        employeeId: lecturer.id,
+        type: 'TRANSFER',
+        status: 'NOMINATED',
+        currentUnitId: computerScience.id,
+        currentPositionId: lecturerPosition.id,
+        proposedUnitId: history.id,
+        proposedPositionId: historyPosition.id,
+        effectiveDate: plusDays(75),
+        reason: 'Demonstration transfer case for the Phase 3 career workflow.',
+        events: {
+          create: {
+            actorUserId: hrUser.id,
+            action: 'NOMINATED',
+            note: 'Demonstration transfer case for the Phase 3 career workflow.',
+          },
+        },
+      },
+    });
+  }
+
   console.log('Demo seed complete.');
-  console.log(`Accounts: admin@umu.ac.mw, hr@umu.ac.mw, hod@umu.ac.mw, employee@umu.ac.mw`);
+  console.log(`Accounts: admin@umu.ac.mw, hr@umu.ac.mw, hod@umu.ac.mw, employee@umu.ac.mw, panel@umu.ac.mw`);
   console.log(`Password: ${password}`);
 }
 

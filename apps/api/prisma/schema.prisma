@@ -49,6 +49,20 @@ model User {
   delegationsGranted       Delegation[]             @relation("DelegationGrantor")
   delegationsReceived      Delegation[]             @relation("DelegationDelegate")
   delegationsRevoked       Delegation[]             @relation("DelegationRevoker")
+  requisitionsCreated      Vacancy[]                @relation("RequisitionCreator")
+  requisitionsApproved     Vacancy[]                @relation("RequisitionApprover")
+  applicationEvents        ApplicationEvent[]       @relation("ApplicationEventActor")
+  applicationsDecided      Application[]            @relation("ApplicationDecider")
+  panelAssignments         PanelAssignment[]        @relation("PanelMember")
+  panelAssignmentsCreated  PanelAssignment[]        @relation("PanelCreator")
+  interviewsCreated        Interview[]              @relation("InterviewCreator")
+  appraisalCyclesCreated   AppraisalCycle[]         @relation("AppraisalCycleCreator")
+  appraisalsSupervised     Appraisal[]              @relation("AppraisalSupervisor")
+  appraisalsHodReviewed    Appraisal[]              @relation("AppraisalHodReviewer")
+  appraisalsHrReviewed     Appraisal[]              @relation("AppraisalHrReviewer")
+  trainingRequestsDecided  TrainingRequest[]        @relation("TrainingDecider")
+  careerCasesDecided       CareerCase[]             @relation("CareerCaseDecider")
+  careerCaseEvents         CareerCaseEvent[]        @relation("CareerCaseEventActor")
 
   @@index([status])
 }
@@ -155,6 +169,7 @@ model OrgUnit {
   assignments     EmployeeAssignment[]
   roleAssignments RoleAssignment[]     @relation("RoleScopeUnit")
   delegations     Delegation[]         @relation("DelegationScopeUnit")
+  vacancies       Vacancy[]
 
   @@index([parentId])
   @@index([status])
@@ -174,6 +189,7 @@ model Position {
 
   unit        OrgUnit              @relation(fields: [unitId], references: [id])
   assignments EmployeeAssignment[]
+  vacancies   Vacancy[]
 
   @@index([unitId])
 }
@@ -216,6 +232,11 @@ model Employee {
   contracts            Contract[]
   probationRecords     ProbationRecord[]
   onboardingChecklists OnboardingChecklist[]
+  appraisals           Appraisal[]             @relation("AppraisalEmployee")
+  trainingRequests     TrainingRequest[]       @relation("TrainingRequestEmployee")
+  trainingRecords      TrainingRecord[]
+  skills               EmployeeSkill[]
+  careerCases          CareerCase[]            @relation("CareerCaseEmployee")
 
   @@index([employmentStatus])
   @@index([profileStatus])
@@ -740,6 +761,337 @@ model Delegation {
   @@index([permissionKey])
 }
 
+model Vacancy {
+  id              String         @id @default(uuid()) @db.VarChar(36)
+  code            String         @unique @db.VarChar(20)
+  title           String         @db.VarChar(120)
+  description     String?        @db.Text
+  requirements    String?        @db.Text
+  unitId          String         @db.VarChar(36)
+  positionId      String?        @db.VarChar(36)
+  employmentType  EmploymentType
+  openings        Int            @default(1)
+  closingDate     DateTime       @db.Date
+  salaryGrade     String?        @db.VarChar(20)
+  status          RequisitionStatus @default(DRAFT)
+  publishedAt     DateTime?
+  approvedById    String?        @db.VarChar(36)
+  createdById     String?        @db.VarChar(36)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  unit            OrgUnit          @relation(fields: [unitId], references: [id])
+  position        Position?        @relation(fields: [positionId], references: [id])
+  approvedBy      User?            @relation("RequisitionApprover", fields: [approvedById], references: [id])
+  createdBy       User?            @relation("RequisitionCreator", fields: [createdById], references: [id])
+  applications    Application[]
+  panelAssignments PanelAssignment[]
+
+  @@index([status, closingDate])
+  @@index([unitId])
+}
+
+model Applicant {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  firstName      String       @db.VarChar(80)
+  lastName       String       @db.VarChar(80)
+  email          String       @db.VarChar(254)
+  phone          String?      @db.VarChar(30)
+  coverNote      String?      @db.Text
+  qualifications String?      @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  applications Application[]
+
+  @@index([email])
+}
+
+model Application {
+  id               String            @id @default(uuid()) @db.VarChar(36)
+  reference        String            @unique @db.VarChar(30)
+  vacancyId        String            @db.VarChar(36)
+  applicantId      String            @db.VarChar(36)
+  status           ApplicationStatus @default(SUBMITTED)
+  submittedAt      DateTime          @default(now())
+  screeningNote    String?           @db.Text
+  decisionNote     String?           @db.Text
+  decisionById     String?           @db.VarChar(36)
+  decisionAt       DateTime?
+  offerDetails     String?           @db.Text
+  offeredAt        DateTime?
+  offerRespondedAt DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  vacancy      Vacancy            @relation(fields: [vacancyId], references: [id])
+  applicant    Applicant          @relation(fields: [applicantId], references: [id])
+  decisionBy   User?              @relation("ApplicationDecider", fields: [decisionById], references: [id])
+  events       ApplicationEvent[]
+  interviews   Interview[]
+  scorecards   Scorecard[]
+
+  @@index([vacancyId, status])
+  @@index([submittedAt])
+}
+
+model ApplicationEvent {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  applicationId String   @db.VarChar(36)
+  actorUserId   String?  @db.VarChar(36)
+  action        String   @db.VarChar(80)
+  note          String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actor       User?       @relation("ApplicationEventActor", fields: [actorUserId], references: [id])
+
+  @@index([applicationId, createdAt])
+}
+
+model PanelAssignment {
+  id            String     @id @default(uuid()) @db.VarChar(36)
+  vacancyId     String     @db.VarChar(36)
+  userId        String     @db.VarChar(36)
+  role          PanelRole  @default(MEMBER)
+  createdById   String?    @db.VarChar(36)
+  createdAt     DateTime   @default(now())
+
+  vacancy    Vacancy     @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  user       User        @relation("PanelMember", fields: [userId], references: [id])
+  createdBy  User?       @relation("PanelCreator", fields: [createdById], references: [id])
+  interviews Interview[]
+  scorecards Scorecard[]
+
+  @@unique([vacancyId, userId])
+  @@index([userId])
+}
+
+model Interview {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  applicationId    String   @db.VarChar(36)
+  panelAssignmentId String? @db.VarChar(36)
+  scheduledAt      DateTime
+  location         String?  @db.VarChar(120)
+  note             String?  @db.Text
+  createdById      String?  @db.VarChar(36)
+  createdAt        DateTime @default(now())
+
+  application     Application      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  panelAssignment PanelAssignment? @relation(fields: [panelAssignmentId], references: [id], onDelete: SetNull)
+  createdBy       User?            @relation("InterviewCreator", fields: [createdById], references: [id])
+
+  @@index([applicationId, scheduledAt])
+}
+
+model Scorecard {
+  id               String                @id @default(uuid()) @db.VarChar(36)
+  applicationId    String                @db.VarChar(36)
+  panelAssignmentId String               @db.VarChar(36)
+  criteria         Json
+  recommendation   ScorecardRecommendation
+  strengths        String?               @db.Text
+  concerns         String?               @db.Text
+  submittedAt      DateTime              @default(now())
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  application     Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  panelAssignment PanelAssignment @relation(fields: [panelAssignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, panelAssignmentId])
+  @@index([applicationId])
+}
+
+model AppraisalCycle {
+  id          String               @id @default(uuid()) @db.VarChar(36)
+  code        String               @unique @db.VarChar(20)
+  name        String               @db.VarChar(120)
+  description String?              @db.Text
+  templateType AppraisalTemplateType
+  startDate   DateTime             @db.Date
+  endDate     DateTime             @db.Date
+  status      AppraisalCycleStatus @default(DRAFT)
+  createdById String?              @db.VarChar(36)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  createdBy User?       @relation("AppraisalCycleCreator", fields: [createdById], references: [id])
+  appraisals Appraisal[]
+
+  @@index([status])
+}
+
+model Appraisal {
+  id               String            @id @default(uuid()) @db.VarChar(36)
+  cycleId          String            @db.VarChar(36)
+  employeeId       String            @db.VarChar(36)
+  supervisorUserId String?           @db.VarChar(36)
+  hodUserId        String?           @db.VarChar(36)
+  hrUserId         String?           @db.VarChar(36)
+  templateType     AppraisalTemplateType
+  status           AppraisalStatus   @default(DRAFT)
+  selfRating       Int?
+  selfComment      String?           @db.Text
+  supervisorRating Int?
+  supervisorComment String?          @db.Text
+  hodRating        Int?
+  hodComment       String?           @db.Text
+  hrComment        String?           @db.Text
+  finalRating      Int?
+  finalComment     String?           @db.Text
+  developmentPlan  String?           @db.Text
+  submittedAt      DateTime?
+  finalizedAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  cycle      AppraisalCycle     @relation(fields: [cycleId], references: [id])
+  employee   Employee           @relation("AppraisalEmployee", fields: [employeeId], references: [id])
+  supervisor User?              @relation("AppraisalSupervisor", fields: [supervisorUserId], references: [id])
+  hod        User?              @relation("AppraisalHodReviewer", fields: [hodUserId], references: [id])
+  hr         User?              @relation("AppraisalHrReviewer", fields: [hrUserId], references: [id])
+  objectives AppraisalObjective[]
+
+  @@unique([cycleId, employeeId])
+  @@index([employeeId, status])
+  @@index([status])
+}
+
+model AppraisalObjective {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  appraisalId      String   @db.VarChar(36)
+  title            String   @db.VarChar(150)
+  target           String   @db.VarChar(500)
+  weight           Int
+  selfRating       Int?
+  supervisorRating Int?
+  createdAt        DateTime @default(now())
+
+  appraisal Appraisal @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+
+  @@index([appraisalId])
+}
+
+model TrainingCourse {
+  id            String                @id @default(uuid()) @db.VarChar(36)
+  code          String                @unique @db.VarChar(20)
+  title         String                @db.VarChar(150)
+  description   String?               @db.Text
+  category      TrainingCourseCategory
+  provider      String?               @db.VarChar(150)
+  durationHours Int                   @default(1)
+  isActive      Boolean               @default(true)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  requests TrainingRequest[]
+  records  TrainingRecord[]
+
+  @@index([category, isActive])
+}
+
+model TrainingRequest {
+  id               String               @id @default(uuid()) @db.VarChar(36)
+  reference        String               @unique @db.VarChar(30)
+  employeeId       String               @db.VarChar(36)
+  courseId         String               @db.VarChar(36)
+  reason           String               @db.Text
+  neededBy         DateTime?            @db.Date
+  status           TrainingRequestStatus @default(REQUESTED)
+  supervisorComment String?             @db.Text
+  hrComment        String?              @db.Text
+  decidedById      String?              @db.VarChar(36)
+  decidedAt        DateTime?
+  completedAt      DateTime?            @db.Date
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  employee   Employee         @relation("TrainingRequestEmployee", fields: [employeeId], references: [id])
+  course     TrainingCourse   @relation(fields: [courseId], references: [id])
+  decidedBy  User?            @relation("TrainingDecider", fields: [decidedById], references: [id])
+  records    TrainingRecord[]
+
+  @@index([employeeId, status])
+  @@index([status, createdAt])
+}
+
+model TrainingRecord {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  employeeId       String   @db.VarChar(36)
+  courseId         String   @db.VarChar(36)
+  requestId        String?  @db.VarChar(36)
+  completedAt      DateTime @db.Date
+  score            Int?
+  certificateNumber String? @db.VarChar(80)
+  expiryDate       DateTime? @db.Date
+  createdAt        DateTime @default(now())
+
+  employee Employee        @relation(fields: [employeeId], references: [id])
+  course   TrainingCourse  @relation(fields: [courseId], references: [id])
+  request  TrainingRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, courseId, completedAt])
+  @@index([employeeId, expiryDate])
+}
+
+model EmployeeSkill {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  employeeId       String   @db.VarChar(36)
+  name             String   @db.VarChar(120)
+  certificateNumber String? @db.VarChar(80)
+  issuedAt         DateTime @db.Date
+  expiryDate       DateTime? @db.Date
+  createdAt        DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, expiryDate])
+}
+
+model CareerCase {
+  id               String          @id @default(uuid()) @db.VarChar(36)
+  reference        String          @unique @db.VarChar(30)
+  employeeId       String          @db.VarChar(36)
+  type             CareerCaseType
+  status           CareerCaseStatus @default(NOMINATED)
+  currentUnitId    String          @db.VarChar(36)
+  currentPositionId String?        @db.VarChar(36)
+  proposedUnitId   String?         @db.VarChar(36)
+  proposedPositionId String?       @db.VarChar(36)
+  effectiveDate    DateTime        @db.Date
+  reason           String          @db.Text
+  eligibilityNote  String?         @db.Text
+  documentsVerified Boolean        @default(false)
+  committeeNote    String?         @db.Text
+  decisionNote     String?         @db.Text
+  decidedById      String?         @db.VarChar(36)
+  decidedAt        DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  employee  Employee          @relation("CareerCaseEmployee", fields: [employeeId], references: [id])
+  decidedBy User?             @relation("CareerCaseDecider", fields: [decidedById], references: [id])
+  events    CareerCaseEvent[]
+
+  @@index([employeeId, status])
+  @@index([status, effectiveDate])
+}
+
+model CareerCaseEvent {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  caseId      String   @db.VarChar(36)
+  actorUserId String?  @db.VarChar(36)
+  action      String   @db.VarChar(80)
+  note        String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  case  CareerCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actor User?      @relation("CareerCaseEventActor", fields: [actorUserId], references: [id])
+
+  @@index([caseId, createdAt])
+}
+
 enum UserStatus {
   ACTIVE
   SUSPENDED
@@ -956,4 +1308,99 @@ enum DelegationStatus {
   ACTIVE
   EXPIRED
   REVOKED
+}
+
+enum RequisitionStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PUBLISHED
+  CLOSED
+  CANCELLED
+  FILLED
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  SCREENING
+  SHORTLISTED
+  INTERVIEW
+  OFFERED
+  ACCEPTED
+  DECLINED
+  REJECTED
+  WITHDRAWN
+  ARCHIVED
+}
+
+enum PanelRole {
+  CHAIR
+  MEMBER
+}
+
+enum ScorecardRecommendation {
+  STRONG_YES
+  YES
+  NEUTRAL
+  NO
+  STRONG_NO
+}
+
+enum AppraisalCycleStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum AppraisalTemplateType {
+  ACADEMIC
+  NON_ACADEMIC
+}
+
+enum AppraisalStatus {
+  DRAFT
+  SELF_REVIEW
+  SUPERVISOR_REVIEW
+  HOD_REVIEW
+  HR_VALIDATION
+  FINALIZED
+  ARCHIVED
+}
+
+enum TrainingCourseCategory {
+  TECHNICAL
+  PEDAGOGICAL
+  MANAGEMENT
+  COMPLIANCE
+  LANGUAGE
+  OTHER
+}
+
+enum TrainingRequestStatus {
+  REQUESTED
+  RECOMMENDED
+  APPROVED
+  REJECTED
+  REGISTERED
+  COMPLETED
+  CANCELLED
+}
+
+enum CareerCaseType {
+  PROMOTION
+  TRANSFER
+  ACTING_APPOINTMENT
+}
+
+enum CareerCaseStatus {
+  NOMINATED
+  ELIGIBILITY_CHECK
+  DOCUMENT_VERIFICATION
+  COMMITTEE_REVIEW
+  RECOMMENDED
+  APPROVED
+  REJECTED
+  EFFECTIVE
+  CANCELLED
 }

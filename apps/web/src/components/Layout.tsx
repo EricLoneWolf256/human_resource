@@ -26,6 +26,11 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/audit', label: 'Audit trail', permission: 'audit.view' },
   { to: '/access', label: 'Access control', permission: 'user.manage' },
   { to: '/delegations', label: 'Delegations', anyPermission: ['role.manage', 'access.delegate'] },
+  { to: '/recruitment', label: 'Recruitment', anyPermission: ['recruitment.view', 'candidate.view'] },
+  { to: '/performance', label: 'Performance', permission: 'appraisal.view' },
+  { to: '/training', label: 'Training', permission: 'training.view' },
+  { to: '/career', label: 'Career & promotion', permission: 'career.view' },
+  { to: '/careers', label: 'Careers portal' },
 ];
 
 function ChangePasswordDialog({ onClose }: { onClose: () => void }) {

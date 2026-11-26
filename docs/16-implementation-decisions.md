@@ -1,7 +1,7 @@
 # Implementation Decisions
 
 Date: 23 November 2026
-Scope: Phase 1 implementation
+Scope: Phases 1–3 implementation
 
 ## Architecture
 
@@ -44,3 +44,22 @@ Scope: Phase 1 implementation
 
 - GitHub Actions uses Node 24, npm caching, MySQL 8.4, `npm ci --ignore-scripts`, explicit Prisma generation, and `migrate deploy` for both development and test databases.
 - Lint, typecheck, build, and tests must pass before the workflow succeeds.
+
+## Phase 2 implementation notes
+
+- Leave balances are derived from entitlement, carryover, adjustments, and approved requests; approvals cannot be decided by the requesting employee.
+- HR requests, contracts, probation reviews, and onboarding checklists use explicit status transitions, owner assignment, and safe notification summaries.
+- Dashboard metrics are permission-gated, so a numeric count is never returned to a user who cannot open the corresponding module.
+
+## Phase 3 implementation notes
+
+- The public `/api/careers/*` routes are excluded from authentication, but only published vacancies with a future or current closing date are exposed. Applicant contact details are never returned in public vacancy lists.
+- Applicant tracking and offer responses require both the application reference and the applicant email; failed lookups return a generic `404` to avoid leaking application existence.
+- Panel members can see only candidates attached to vacancies where they have an active panel assignment. Scorecards require a valid panel assignment to prevent unreviewed offers.
+- An offer can be made only from a shortlisted or interviewed application and requires at least one `YES` or `STRONG_YES` scorecard recommendation.
+- Interview scheduling from `SHORTLISTED` records an application status event and audit entry so the funnel remains traceable.
+- Appraisals use staged `SELF_REVIEW`, `SUPERVISOR_REVIEW`, `HOD_REVIEW`, `HR_REVIEW`, `FINALIZED`, and `ARCHIVED` transitions. Objective ratings must exactly cover the appraisal objectives before submission.
+- Training completion is a dedicated operation that creates the training record and employee skill; changing a request directly to `COMPLETED` is rejected.
+- Career cases preserve effective assignment history. A decision cannot take effect earlier than the employee's active assignment start date or conflict with another assignment.
+- `apps/api/prisma/seed.ts` is idempotent and adds a panel user, published requisition, application, interview, scorecard, appraisal cycle, training request, and career case for demonstration.
+- The acceptance suite now covers the careers portal, panel scoping, offer flow and candidate response, appraisal lifecycle, training completion and bypass prevention, career effectiveness, and Phase 3 dashboard permissions.

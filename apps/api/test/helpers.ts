@@ -9,8 +9,13 @@ export const DEMO_PASSWORD = 'Demo#Pass123';
 const FOUNDATION = new Date('2020-01-01T00:00:00.000Z');
 
 const TABLES = [
-  'AuditEvent', 'Notification', 'Delegation', 'OnboardingTask', 'OnboardingChecklist',
-  'OnboardingTemplateTask', 'OnboardingTemplate', 'Reminder', 'ProbationRecord', 'Contract',
+  'AuditEvent', 'Notification', 'Delegation',
+  'AppraisalObjective', 'Appraisal', 'AppraisalCycle',
+  'ApplicationEvent', 'Interview', 'Scorecard', 'PanelAssignment', 'Application', 'Applicant', 'Vacancy',
+  'TrainingRecord', 'TrainingRequest', 'TrainingCourse', 'EmployeeSkill',
+  'CareerCaseEvent', 'CareerCase',
+  'OnboardingTask', 'OnboardingChecklist', 'OnboardingTemplateTask', 'OnboardingTemplate',
+  'Reminder', 'ProbationRecord', 'Contract',
   'HrRequestEvent', 'HrRequest', 'LeaveRequestDocument', 'WorkflowStep', 'WorkflowInstance',
   'LeaveBalanceAdjustment', 'LeaveBalance', 'LeavePolicy', 'LeaveType',
   'Document', 'EmployeeChangeRequest', 'EmployeeStatusHistory', 'EmployeeAssignment',
@@ -30,8 +35,10 @@ export interface Baseline {
   adminUserId: string;
   hodUserId: string;
   employeeUserId: string;
+  panelUserId: string;
   staffAId: string;
   staffBId: string;
+  plainEmployeeId: string;
   hodEmployeeId: string;
   deptAId: string;
   deptBId: string;
@@ -59,7 +66,7 @@ export async function seedBaseline(): Promise<Baseline> {
     roleIds[role.key] = stored.id;
     await prisma.rolePermission.deleteMany({ where: { roleId: stored.id } });
     await prisma.rolePermission.createMany({
-      data: role.permissions.map((permissionKey) => ({ roleId: stored.id, permissionKey })),
+      data: [...new Set(role.permissions)].map((permissionKey) => ({ roleId: stored.id, permissionKey })),
     });
   }
 
@@ -125,6 +132,9 @@ export async function seedBaseline(): Promise<Baseline> {
   const employeeUser = await prisma.user.create({
     data: { email: 'employee@umu.ac.mw', passwordHash, employeeId: plainEmployee.id },
   });
+  const panelUser = await prisma.user.create({
+    data: { email: 'panel@umu.ac.mw', passwordHash, employeeId: staffA.id },
+  });
 
   await prisma.roleAssignment.create({
     data: {
@@ -150,6 +160,15 @@ export async function seedBaseline(): Promise<Baseline> {
       userId: employeeUser.id,
       roleId: roleIds.EMPLOYEE!,
       scopeType: 'OWN',
+      startDate: FOUNDATION,
+      reason: 'Test baseline',
+    },
+  });
+  await prisma.roleAssignment.create({
+    data: {
+      userId: panelUser.id,
+      roleId: roleIds.RECRUITMENT_PANEL_MEMBER!,
+      scopeType: 'ASSIGNED',
       startDate: FOUNDATION,
       reason: 'Test baseline',
     },
@@ -199,8 +218,10 @@ export async function seedBaseline(): Promise<Baseline> {
     adminUserId: adminUser.id,
     hodUserId: hodUser.id,
     employeeUserId: employeeUser.id,
+    panelUserId: panelUser.id,
     staffAId: staffA.id,
     staffBId: staffB.id,
+    plainEmployeeId: plainEmployee.id,
     hodEmployeeId: hodEmployee.id,
     deptAId: deptA.id,
     deptBId: deptB.id,

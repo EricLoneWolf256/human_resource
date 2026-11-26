@@ -1,6 +1,6 @@
 ﻿# University HR and Staff Management System
 
-Phase 1 implementation of the centralized HR and staff management platform for the university project. The repository includes the original specification pack in `docs/`, a Prisma-backed Express API, and a React web client.
+Phases 1–3 implementation of the centralized HR and staff management platform for the university project. The repository includes the original specification pack in `docs/`, a Prisma-backed Express API, and a React web client.
 
 ## Project direction
 
@@ -10,13 +10,17 @@ Phase 1 implementation of the centralized HR and staff management platform for t
 - Granular RBAC with scope restrictions is enforced on every protected API route.
 - All records are new; no legacy HR application migration is assumed.
 
-## Implemented in Phase 1
+## Implemented across Phases 1–3
 
 - Authentication with access/refresh tokens, session revocation, login throttling, and password changes.
-- Role and scope assignment with effective role assignments and audit logging.
+- Role and scope assignment with effective role assignments, delegation, and audit logging.
 - Organizational units, positions, employee directory, lifecycle statuses, and effective-dated assignments.
 - Employee self-service, correction requests, document upload/verification, notifications, dashboard, and audit log.
-- React web client for login, dashboard, employees, employee detail, profile, organization, documents, notifications, audit, and access management.
+- Leave requests and balances, HR requests, contracts and reminders, probation reviews, and onboarding checklists.
+- Vacancy requisitions, a public careers portal, application tracking, interview panels, scorecards, offers, and candidate responses.
+- Performance appraisal cycles, staged reviews, finalization, training courses and requests, completion records, and employee skills.
+- Promotion, transfer, and acting appointment cases with eligibility, committee, decision, and effective assignment workflows.
+- React web client for all management modules plus the unauthenticated careers portal at `/careers`.
 
 ## Quick start
 
@@ -39,6 +43,8 @@ Demo accounts (password `Demo#Pass123`):
 - `hr@umu.ac.mw` — HR manager
 - `hod@umu.ac.mw` — HOD, Computer Science department scope
 - `employee@umu.ac.mw` — employee self-service
+- `recruiter@umu.ac.mw` — recruitment officer
+- `panel@umu.ac.mw` — recruitment panel member
 
 ## Verification
 
@@ -78,4 +84,4 @@ See `docs/` for the complete specification pack:
 
 ## Status
 
-Phase 1 implementation is complete and verified. Later roadmap phases are not implemented in this commit.
+Phases 1–3 are implemented and verified with lint, typecheck, build, and the full API acceptance suite. The remaining roadmap work is Phase 4 reporting/polish/deployment and Phase 5 future extensions.

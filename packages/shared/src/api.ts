@@ -1,5 +1,11 @@
 import type {
+  ApplicationStatus,
+  AppraisalCycleStatus,
+  AppraisalStatus,
+  AppraisalTemplateType,
   AssignmentType,
+  CareerCaseStatus,
+  CareerCaseType,
   ChangeRequestStatus,
   ContractRenewalStatus,
   ContractStatus,
@@ -16,13 +22,18 @@ import type {
   OnboardingStatus,
   OnboardingTaskStatus,
   OrgUnitType,
+  PanelRole,
   PositionStatus,
   ProbationOutcome,
   ProfileStatus,
+  RequisitionStatus,
   ReminderType,
   RetentionStatus,
   ScopeType,
+  ScorecardRecommendation,
   SensitivityLevel,
+  TrainingCourseCategory,
+  TrainingRequestStatus,
   UnitStatus,
   UserStatus,
   WorkflowStepStatus,
@@ -304,6 +315,13 @@ export interface DashboardPayload {
     probationReviewsDue: number | null;
     onboardingCompletion: { completed: number; total: number } | null;
   } | null;
+  phase3: {
+    openVacancies: number | null;
+    applicationsInProgress: number | null;
+    appraisalsInReview: number | null;
+    pendingTrainingApprovals: number | null;
+    pendingCareerCases: number | null;
+  } | null;
   admin: {
     usersByStatus: Record<string, number>;
     activeRoleAssignments: number;
@@ -511,6 +529,247 @@ export interface DelegationDto {
   reason: string;
   status: DelegationStatus;
   revokedAt: string | null;
+}
+
+export interface VacancyDto {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  requirements: string | null;
+  unitId: string;
+  unitName: string;
+  positionId: string | null;
+  positionTitle: string | null;
+  employmentType: EmploymentType;
+  openings: number;
+  closingDate: string;
+  salaryGrade: string | null;
+  status: RequisitionStatus;
+  publishedAt: string | null;
+  approvedByName: string | null;
+  createdAt: string;
+}
+
+export interface ApplicationEventDto {
+  id: string;
+  action: string;
+  note: string | null;
+  actorName: string | null;
+  createdAt: string;
+}
+
+export interface InterviewDto {
+  id: string;
+  applicationId: string;
+  applicationReference: string;
+  scheduledAt: string;
+  location: string | null;
+  note: string | null;
+  panelMemberName: string | null;
+  createdAt: string;
+}
+
+export interface ScorecardDto {
+  id: string;
+  applicationId: string;
+  panelAssignmentId: string;
+  panelMemberName: string | null;
+  criteria: { name: string; score: number; comment?: string | null }[];
+  averageScore: number;
+  recommendation: ScorecardRecommendation;
+  strengths: string | null;
+  concerns: string | null;
+  submittedAt: string;
+}
+
+export interface ApplicationDto {
+  id: string;
+  reference: string;
+  vacancyId: string;
+  vacancyTitle: string;
+  applicantId: string;
+  applicantName: string;
+  email: string;
+  phone: string | null;
+  coverNote: string | null;
+  qualifications: string | null;
+  status: ApplicationStatus;
+  submittedAt: string;
+  screeningNote: string | null;
+  decisionNote: string | null;
+  decisionByName: string | null;
+  decisionAt: string | null;
+  offerDetails: string | null;
+  offeredAt: string | null;
+  offerRespondedAt: string | null;
+  createdAt: string;
+  events: ApplicationEventDto[];
+  interviews: InterviewDto[];
+  scorecards: ScorecardDto[];
+}
+
+export interface PanelAssignmentDto {
+  id: string;
+  vacancyId: string;
+  vacancyTitle: string;
+  userId: string;
+  userName: string;
+  role: PanelRole;
+  createdAt: string;
+}
+
+export interface PublicVacancyDto {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  requirements: string | null;
+  unitName: string;
+  positionTitle: string | null;
+  employmentType: EmploymentType;
+  openings: number;
+  closingDate: string;
+  publishedAt: string | null;
+}
+
+export interface ApplicationTrackingDto {
+  reference: string;
+  vacancyTitle: string;
+  status: ApplicationStatus;
+  submittedAt: string;
+  decisionAt: string | null;
+  offerDetails: string | null;
+}
+
+export interface AppraisalCycleDto {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  templateType: AppraisalTemplateType;
+  startDate: string;
+  endDate: string;
+  status: AppraisalCycleStatus;
+  appraisalCount: number;
+}
+
+export interface AppraisalObjectiveDto {
+  id: string;
+  title: string;
+  target: string;
+  weight: number;
+  selfRating: number | null;
+  supervisorRating: number | null;
+}
+
+export interface AppraisalDto {
+  id: string;
+  cycleId: string;
+  cycleName: string;
+  employeeId: string;
+  employeeName: string;
+  staffNumber: string;
+  templateType: AppraisalTemplateType;
+  status: AppraisalStatus;
+  objectives: AppraisalObjectiveDto[];
+  selfRating: number | null;
+  selfComment: string | null;
+  supervisorRating: number | null;
+  supervisorComment: string | null;
+  hodRating: number | null;
+  hodComment: string | null;
+  hrComment: string | null;
+  finalRating: number | null;
+  finalComment: string | null;
+  developmentPlan: string | null;
+  submittedAt: string | null;
+  finalizedAt: string | null;
+  createdAt: string;
+}
+
+export interface TrainingCourseDto {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  category: TrainingCourseCategory;
+  provider: string | null;
+  durationHours: number;
+  isActive: boolean;
+}
+
+export interface TrainingRequestDto {
+  id: string;
+  reference: string;
+  employeeId: string;
+  employeeName: string;
+  courseId: string;
+  courseTitle: string;
+  reason: string;
+  neededBy: string | null;
+  status: TrainingRequestStatus;
+  supervisorComment: string | null;
+  hrComment: string | null;
+  decidedByName: string | null;
+  decidedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface TrainingRecordDto {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  courseId: string;
+  courseTitle: string;
+  requestId: string | null;
+  completedAt: string;
+  score: number | null;
+  certificateNumber: string | null;
+  expiryDate: string | null;
+  createdAt: string;
+}
+
+export interface EmployeeSkillDto {
+  id: string;
+  employeeId: string;
+  name: string;
+  certificateNumber: string | null;
+  issuedAt: string;
+  expiryDate: string | null;
+  isExpired: boolean;
+}
+
+export interface CareerCaseEventDto {
+  id: string;
+  action: string;
+  note: string | null;
+  actorName: string | null;
+  createdAt: string;
+}
+
+export interface CareerCaseDto {
+  id: string;
+  reference: string;
+  employeeId: string;
+  employeeName: string;
+  type: CareerCaseType;
+  status: CareerCaseStatus;
+  currentUnitId: string;
+  currentPositionId: string | null;
+  proposedUnitId: string | null;
+  proposedPositionId: string | null;
+  effectiveDate: string;
+  reason: string;
+  eligibilityNote: string | null;
+  documentsVerified: boolean;
+  committeeNote: string | null;
+  decisionNote: string | null;
+  decidedByName: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  events: CareerCaseEventDto[];
 }
 
 export const ERROR_CODES = {

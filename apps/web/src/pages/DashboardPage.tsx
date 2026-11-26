@@ -55,6 +55,21 @@ export default function DashboardPage() {
             note="Checklists completed"
           />
         ) : null}
+        {data.phase3?.openVacancies !== null && data.phase3?.openVacancies !== undefined ? (
+          <Stat label="Open vacancies" value={data.phase3.openVacancies} />
+        ) : null}
+        {data.phase3?.applicationsInProgress !== null && data.phase3?.applicationsInProgress !== undefined ? (
+          <Stat label="Applications in progress" value={data.phase3.applicationsInProgress} />
+        ) : null}
+        {data.phase3?.appraisalsInReview !== null && data.phase3?.appraisalsInReview !== undefined ? (
+          <Stat label="Appraisals in review" value={data.phase3.appraisalsInReview} />
+        ) : null}
+        {data.phase3?.pendingTrainingApprovals !== null && data.phase3?.pendingTrainingApprovals !== undefined ? (
+          <Stat label="Training approvals" value={data.phase3.pendingTrainingApprovals} />
+        ) : null}
+        {data.phase3?.pendingCareerCases !== null && data.phase3?.pendingCareerCases !== undefined ? (
+          <Stat label="Career cases pending" value={data.phase3.pendingCareerCases} />
+        ) : null}
         {data.admin ? <Stat label="Active role assignments" value={data.admin.activeRoleAssignments} note={`${data.admin.expiringAssignments7d} expiring in 7 days`} /> : null}
       </div>
 

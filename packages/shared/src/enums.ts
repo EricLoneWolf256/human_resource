@@ -190,3 +190,111 @@ export type ReminderType = (typeof REMINDER_TYPES)[number];
 
 export const DELEGATION_STATUSES = ['ACTIVE', 'EXPIRED', 'REVOKED'] as const;
 export type DelegationStatus = (typeof DELEGATION_STATUSES)[number];
+
+export const REQUISITION_STATUSES = [
+  'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'CLOSED', 'CANCELLED', 'FILLED',
+] as const;
+export type RequisitionStatus = (typeof REQUISITION_STATUSES)[number];
+
+export const APPLICATION_STATUSES = [
+  'SUBMITTED', 'SCREENING', 'SHORTLISTED', 'INTERVIEW', 'OFFERED', 'ACCEPTED',
+  'DECLINED', 'REJECTED', 'WITHDRAWN', 'ARCHIVED',
+] as const;
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+
+export const APPLICATION_TRANSITIONS: Record<ApplicationStatus, readonly ApplicationStatus[]> = {
+  SUBMITTED: ['SCREENING', 'SHORTLISTED', 'REJECTED', 'WITHDRAWN'],
+  SCREENING: ['SHORTLISTED', 'REJECTED', 'WITHDRAWN'],
+  SHORTLISTED: ['INTERVIEW', 'OFFERED', 'REJECTED', 'WITHDRAWN'],
+  INTERVIEW: ['OFFERED', 'REJECTED', 'WITHDRAWN'],
+  OFFERED: ['ACCEPTED', 'DECLINED', 'REJECTED', 'WITHDRAWN'],
+  ACCEPTED: ['ARCHIVED'],
+  DECLINED: ['ARCHIVED'],
+  REJECTED: ['ARCHIVED'],
+  WITHDRAWN: ['ARCHIVED'],
+  ARCHIVED: [],
+};
+
+export function isApplicationTransitionAllowed(from: ApplicationStatus, to: ApplicationStatus): boolean {
+  return APPLICATION_TRANSITIONS[from].includes(to);
+}
+
+export const PANEL_ROLES = ['CHAIR', 'MEMBER'] as const;
+export type PanelRole = (typeof PANEL_ROLES)[number];
+
+export const SCORECARD_RECOMMENDATIONS = ['STRONG_YES', 'YES', 'NEUTRAL', 'NO', 'STRONG_NO'] as const;
+export type ScorecardRecommendation = (typeof SCORECARD_RECOMMENDATIONS)[number];
+
+export const APPRAISAL_CYCLE_STATUSES = ['DRAFT', 'OPEN', 'CLOSED', 'ARCHIVED'] as const;
+export type AppraisalCycleStatus = (typeof APPRAISAL_CYCLE_STATUSES)[number];
+
+export const APPRAISAL_TEMPLATE_TYPES = ['ACADEMIC', 'NON_ACADEMIC'] as const;
+export type AppraisalTemplateType = (typeof APPRAISAL_TEMPLATE_TYPES)[number];
+
+export const APPRAISAL_STATUSES = [
+  'DRAFT', 'SELF_REVIEW', 'SUPERVISOR_REVIEW', 'HOD_REVIEW', 'HR_VALIDATION', 'FINALIZED', 'ARCHIVED',
+] as const;
+export type AppraisalStatus = (typeof APPRAISAL_STATUSES)[number];
+
+export const APPRAISAL_TRANSITIONS: Record<AppraisalStatus, readonly AppraisalStatus[]> = {
+  DRAFT: ['SELF_REVIEW'],
+  SELF_REVIEW: ['SUPERVISOR_REVIEW'],
+  SUPERVISOR_REVIEW: ['HOD_REVIEW'],
+  HOD_REVIEW: ['HR_VALIDATION'],
+  HR_VALIDATION: ['FINALIZED'],
+  FINALIZED: ['ARCHIVED'],
+  ARCHIVED: [],
+};
+
+export function isAppraisalTransitionAllowed(from: AppraisalStatus, to: AppraisalStatus): boolean {
+  return APPRAISAL_TRANSITIONS[from].includes(to);
+}
+
+export const TRAINING_COURSE_CATEGORIES = [
+  'TECHNICAL', 'PEDAGOGICAL', 'MANAGEMENT', 'COMPLIANCE', 'LANGUAGE', 'OTHER',
+] as const;
+export type TrainingCourseCategory = (typeof TRAINING_COURSE_CATEGORIES)[number];
+
+export const TRAINING_REQUEST_STATUSES = [
+  'REQUESTED', 'RECOMMENDED', 'APPROVED', 'REJECTED', 'REGISTERED', 'COMPLETED', 'CANCELLED',
+] as const;
+export type TrainingRequestStatus = (typeof TRAINING_REQUEST_STATUSES)[number];
+
+export const TRAINING_REQUEST_TRANSITIONS: Record<TrainingRequestStatus, readonly TrainingRequestStatus[]> = {
+  REQUESTED: ['RECOMMENDED', 'APPROVED', 'REJECTED', 'CANCELLED'],
+  RECOMMENDED: ['APPROVED', 'REJECTED', 'CANCELLED'],
+  APPROVED: ['REGISTERED', 'CANCELLED'],
+  REJECTED: [],
+  REGISTERED: ['COMPLETED', 'CANCELLED'],
+  COMPLETED: [],
+  CANCELLED: [],
+};
+
+export function isTrainingTransitionAllowed(from: TrainingRequestStatus, to: TrainingRequestStatus): boolean {
+  return TRAINING_REQUEST_TRANSITIONS[from].includes(to);
+}
+
+export const CAREER_CASE_TYPES = ['PROMOTION', 'TRANSFER', 'ACTING_APPOINTMENT'] as const;
+export type CareerCaseType = (typeof CAREER_CASE_TYPES)[number];
+
+export const CAREER_CASE_STATUSES = [
+  'NOMINATED', 'ELIGIBILITY_CHECK', 'DOCUMENT_VERIFICATION', 'COMMITTEE_REVIEW',
+  'RECOMMENDED', 'APPROVED', 'REJECTED', 'EFFECTIVE', 'CANCELLED',
+] as const;
+export type CareerCaseStatus = (typeof CAREER_CASE_STATUSES)[number];
+
+export const CAREER_CASE_TRANSITIONS: Record<CareerCaseStatus, readonly CareerCaseStatus[]> = {
+  NOMINATED: ['ELIGIBILITY_CHECK', 'CANCELLED'],
+  ELIGIBILITY_CHECK: ['DOCUMENT_VERIFICATION', 'REJECTED', 'CANCELLED'],
+  DOCUMENT_VERIFICATION: ['COMMITTEE_REVIEW', 'REJECTED', 'CANCELLED'],
+  COMMITTEE_REVIEW: ['RECOMMENDED', 'REJECTED'],
+  RECOMMENDED: ['APPROVED', 'REJECTED'],
+  APPROVED: ['EFFECTIVE', 'CANCELLED'],
+  REJECTED: [],
+  EFFECTIVE: [],
+  CANCELLED: [],
+};
+
+export function isCareerTransitionAllowed(from: CareerCaseStatus, to: CareerCaseStatus): boolean {
+  return CAREER_CASE_TRANSITIONS[from].includes(to);
+}

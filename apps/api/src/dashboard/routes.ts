@@ -181,6 +181,38 @@ router.get(
           : Promise.resolve(null),
       ]);
 
+    const [openVacancies, applicationsInProgress, appraisalsInReview, pendingTrainingApprovals, pendingCareerCases] =
+      await Promise.all([
+        hasPermission(ctx, 'recruitment.view')
+          ? prisma.vacancy.count({ where: { status: 'PUBLISHED' } })
+          : Promise.resolve(null),
+        hasPermission(ctx, 'recruitment.view') || hasPermission(ctx, 'candidate.view')
+          ? prisma.application.count({
+              where: { status: { in: ['SUBMITTED', 'SCREENING', 'SHORTLISTED', 'INTERVIEW', 'OFFERED'] } },
+            })
+          : Promise.resolve(null),
+        hasPermission(ctx, 'appraisal.view')
+          ? prisma.appraisal.count({
+              where: {
+                status: { in: ['SELF_REVIEW', 'SUPERVISOR_REVIEW', 'HOD_REVIEW', 'HR_VALIDATION'] },
+                employee: employeeWhere(ctx, 'appraisal.view'),
+              },
+            })
+          : Promise.resolve(null),
+        hasPermission(ctx, 'training.approve') || hasPermission(ctx, 'training.manage')
+          ? prisma.trainingRequest.count({ where: { status: { in: ['REQUESTED', 'RECOMMENDED'] } } })
+          : Promise.resolve(null),
+        hasPermission(ctx, 'promotion.review')
+          ? prisma.careerCase.count({
+              where: {
+                status: {
+                  in: ['NOMINATED', 'ELIGIBILITY_CHECK', 'DOCUMENT_VERIFICATION', 'COMMITTEE_REVIEW', 'RECOMMENDED'],
+                },
+              },
+            })
+          : Promise.resolve(null),
+      ]);
+
     let admin: DashboardPayload['admin'] = null;
     if (hasPermission(ctx, 'user.manage') || hasPermission(ctx, 'audit.view')) {
       const sevenDays = addDays(today(), 7);
@@ -240,6 +272,13 @@ router.get(
               total: checklistRows.reduce((sum, row) => sum + row._count._all, 0),
             }
           : null,
+      },
+      phase3: {
+        openVacancies,
+        applicationsInProgress,
+        appraisalsInReview,
+        pendingTrainingApprovals,
+        pendingCareerCases,
       },
       admin,
     };

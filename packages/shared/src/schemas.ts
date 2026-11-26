@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import {
+  APPLICATION_STATUSES,
+  APPRAISAL_CYCLE_STATUSES,
+  APPRAISAL_STATUSES,
+  APPRAISAL_TEMPLATE_TYPES,
   ASSIGNMENT_TYPES,
+  CAREER_CASE_STATUSES,
+  CAREER_CASE_TYPES,
   CHANGE_REQUEST_FIELDS,
   CHANGE_REQUEST_STATUSES,
   CONTRACT_RENEWAL_STATUSES,
@@ -17,13 +23,18 @@ import {
   NOTIFICATION_PRIORITIES,
   ONBOARDING_TASK_STATUSES,
   ORG_UNIT_TYPES,
+  PANEL_ROLES,
   POSITION_STATUSES,
   PROBATION_OUTCOMES,
+  REQUISITION_STATUSES,
   REMINDER_TYPES,
   SCOPE_TYPES,
+  SCORECARD_RECOMMENDATIONS,
   SENSITIVITY_LEVELS,
   STAFF_NUMBER_HINT,
   STAFF_NUMBER_PATTERN,
+  TRAINING_COURSE_CATEGORIES,
+  TRAINING_REQUEST_STATUSES,
   UNIT_SCOPES,
   UNIT_STATUSES,
   USER_STATUSES,
@@ -32,7 +43,14 @@ import {
 const uuid = z.string().uuid();
 const dateOnly = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected date in YYYY-MM-DD format');
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected date in YYYY-MM-DD format')
+  .refine((value) => {
+    const year = Number(value.slice(0, 4));
+    const month = Number(value.slice(5, 7));
+    const day = Number(value.slice(8, 10));
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+  }, 'Expected a valid calendar date in YYYY-MM-DD format');
 const optionalText = (max: number) => z.string().trim().max(max).optional().nullable();
 
 export const loginSchema = z.object({
@@ -581,6 +599,292 @@ export const delegationRevokeSchema = z.object({
   reason: z.string().trim().min(3).max(500),
 });
 
+const requisitionBaseSchema = z.object({
+  code: z.string().trim().regex(/^[A-Z0-9-]{2,20}$/, 'Code must be 2-20 uppercase letters, digits or hyphens'),
+  title: z.string().trim().min(2).max(120),
+  description: optionalText(5000),
+  requirements: optionalText(5000),
+  unitId: uuid,
+  positionId: uuid.optional().nullable(),
+  employmentType: z.enum(EMPLOYMENT_TYPES),
+  openings: z.number().int().min(1).max(50).default(1),
+  closingDate: dateOnly,
+  salaryGrade: optionalText(20),
+});
+
+const notPastDate = (value: string | undefined, ctx: z.RefinementCtx, path: string) => {
+  if (value && value < new Date().toISOString().slice(0, 10)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message: 'Closing date cannot be in the past' });
+  }
+};
+
+export const requisitionCreateSchema = requisitionBaseSchema.superRefine((value, ctx) =>
+  notPastDate(value.closingDate, ctx, 'closingDate'),
+);
+
+export const requisitionUpdateSchema = requisitionBaseSchema
+  .partial()
+  .omit({ code: true })
+  .superRefine((value, ctx) => notPastDate(value.closingDate, ctx, 'closingDate'));
+
+export const requisitionDecisionSchema = z
+  .object({
+    action: z.enum(['APPROVE', 'REJECT']),
+    comment: z.string().trim().min(3).max(1000),
+  });
+
+export const vacancyPublishSchema = z.object({
+  note: optionalText(500),
+});
+
+export const vacancyQuerySchema = paginationSchema.extend({
+  status: z.enum(REQUISITION_STATUSES).optional(),
+  unitId: uuid.optional(),
+  q: z.string().trim().max(120).optional(),
+});
+
+export const applicationCreateSchema = z.object({
+  vacancyId: uuid,
+  firstName: z.string().trim().min(1).max(80),
+  lastName: z.string().trim().min(1).max(80),
+  email: z.string().trim().email().max(254),
+  phone: optionalText(30),
+  coverNote: optionalText(5000),
+  qualifications: optionalText(5000),
+});
+
+export const applicationTrackSchema = z.object({
+  reference: z.string().trim().min(6).max(30),
+  email: z.string().trim().email().max(254),
+});
+
+export const applicationStatusSchema = z
+  .object({
+    status: z.enum(APPLICATION_STATUSES),
+    note: optionalText(1000),
+  })
+  .superRefine((val, ctx) => {
+    if (
+      ['ACCEPTED', 'DECLINED', 'REJECTED', 'WITHDRAWN'].includes(val.status) &&
+      (!val.note || val.note.trim().length < 3)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['note'],
+        message: 'A note of at least 3 characters is required for this decision',
+      });
+    }
+  });
+
+export const offerCreateSchema = z.object({
+  note: z.string().trim().min(3).max(1000),
+  offerDetails: z.string().trim().min(3).max(2000),
+});
+
+export const offerResponseSchema = z.object({
+  action: z.enum(['ACCEPT', 'DECLINE']),
+  note: optionalText(1000),
+});
+
+export const panelAssignmentCreateSchema = z.object({
+  vacancyId: uuid,
+  userId: uuid,
+  role: z.enum(PANEL_ROLES).default('MEMBER'),
+});
+
+export const interviewCreateSchema = z.object({
+  applicationId: uuid,
+  panelAssignmentId: uuid.optional().nullable(),
+  scheduledAt: z.string().datetime({ offset: true }),
+  location: optionalText(120),
+  note: optionalText(1000),
+});
+
+export const scorecardCreateSchema = z.object({
+  applicationId: uuid,
+  criteria: z
+    .array(
+      z.object({
+        name: z.string().trim().min(2).max(80),
+        score: z.number().int().min(1).max(5),
+        comment: optionalText(500),
+      }),
+    )
+    .min(1)
+    .max(10),
+  recommendation: z.enum(SCORECARD_RECOMMENDATIONS),
+  strengths: optionalText(2000),
+  concerns: optionalText(2000),
+});
+
+export const candidateQuerySchema = paginationSchema.extend({
+  vacancyId: uuid.optional(),
+  status: z.enum(APPLICATION_STATUSES).optional(),
+  q: z.string().trim().max(120).optional(),
+});
+
+export const appraisalCycleCreateSchema = z
+  .object({
+    code: z.string().trim().regex(/^[A-Z0-9-]{2,20}$/, 'Code must be 2-20 uppercase letters, digits or hyphens'),
+    name: z.string().trim().min(2).max(120),
+    description: optionalText(1000),
+    templateType: z.enum(APPRAISAL_TEMPLATE_TYPES),
+    startDate: dateOnly,
+    endDate: dateOnly,
+  })
+  .superRefine(ensureDateRange);
+
+export const appraisalCycleUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(120).optional(),
+  description: optionalText(1000),
+  templateType: z.enum(APPRAISAL_TEMPLATE_TYPES).optional(),
+  startDate: dateOnly.optional(),
+  endDate: dateOnly.optional(),
+  status: z.enum(APPRAISAL_CYCLE_STATUSES).optional(),
+});
+
+export const appraisalObjectiveCreateSchema = z.object({
+  title: z.string().trim().min(2).max(150),
+  target: z.string().trim().min(2).max(500),
+  weight: z.number().int().min(1).max(100),
+});
+
+export const appraisalCreateSchema = z.object({
+  cycleId: uuid,
+  employeeId: uuid,
+  objectives: z.array(appraisalObjectiveCreateSchema).min(1).max(20),
+});
+
+export const objectiveRatingSchema = z.object({
+  id: uuid,
+  rating: z.number().int().min(1).max(5),
+});
+
+export const appraisalSelfReviewSchema = z.object({
+  selfRating: z.number().int().min(1).max(5),
+  selfComment: z.string().trim().min(3).max(5000),
+  developmentPlan: optionalText(5000),
+  objectiveRatings: z.array(objectiveRatingSchema).max(20).default([]),
+});
+
+export const appraisalReviewSchema = z
+  .object({
+    stage: z.enum(['SUPERVISOR', 'HOD', 'HR']),
+    rating: z.number().int().min(1).max(5),
+    comment: z.string().trim().min(3).max(5000),
+    developmentPlan: optionalText(5000),
+  });
+
+export const appraisalFinalizeSchema = z.object({
+  finalRating: z.number().int().min(1).max(5),
+  comment: z.string().trim().min(3).max(2000),
+});
+
+export const appraisalQuerySchema = paginationSchema.extend({
+  cycleId: uuid.optional(),
+  employeeId: uuid.optional(),
+  status: z.enum(APPRAISAL_STATUSES).optional(),
+});
+
+export const trainingCourseCreateSchema = z.object({
+  code: z.string().trim().regex(/^[A-Z0-9-]{2,20}$/, 'Code must be 2-20 uppercase letters, digits or hyphens'),
+  title: z.string().trim().min(2).max(150),
+  description: optionalText(5000),
+  category: z.enum(TRAINING_COURSE_CATEGORIES),
+  provider: optionalText(150),
+  durationHours: z.number().int().min(1).max(1000).default(1),
+  isActive: z.boolean().default(true),
+});
+
+export const trainingCourseUpdateSchema = trainingCourseCreateSchema.partial().omit({ code: true });
+
+export const trainingRequestCreateSchema = z.object({
+  employeeId: uuid.optional(),
+  courseId: uuid,
+  reason: z.string().trim().min(3).max(2000),
+  neededBy: dateOnly.optional(),
+});
+
+export const trainingDecisionSchema = z
+  .object({
+    action: z.enum(['RECOMMEND', 'APPROVE', 'REJECT']),
+    comment: z.string().trim().min(3).max(1000),
+  });
+
+export const trainingStatusSchema = z
+  .object({
+    status: z.enum(TRAINING_REQUEST_STATUSES),
+    comment: optionalText(1000),
+  })
+  .superRefine((val, ctx) => {
+    if (val.status === 'REJECTED' && (!val.comment || val.comment.trim().length < 3)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['comment'],
+        message: 'A comment of at least 3 characters is required to reject training',
+      });
+    }
+  });
+
+export const trainingCompletionSchema = z.object({
+  completedAt: dateOnly,
+  score: z.number().int().min(0).max(100).optional(),
+  certificateNumber: z.string().trim().min(3).max(80).optional(),
+  expiryDate: dateOnly.optional(),
+  skillName: z.string().trim().min(2).max(120).optional(),
+});
+
+export const trainingQuerySchema = paginationSchema.extend({
+  status: z.enum(TRAINING_REQUEST_STATUSES).optional(),
+  employeeId: uuid.optional(),
+  courseId: uuid.optional(),
+});
+
+export const employeeSkillCreateSchema = z.object({
+  employeeId: uuid,
+  name: z.string().trim().min(2).max(120),
+  certificateNumber: optionalText(80),
+  issuedAt: dateOnly,
+  expiryDate: dateOnly.optional(),
+});
+
+export const careerCaseCreateSchema = z.object({
+  employeeId: uuid,
+  type: z.enum(CAREER_CASE_TYPES),
+  proposedUnitId: uuid.optional().nullable(),
+  proposedPositionId: uuid.optional().nullable(),
+  effectiveDate: dateOnly,
+  reason: z.string().trim().min(10).max(2000),
+});
+
+export const careerProgressSchema = z
+  .object({
+    status: z.enum(CAREER_CASE_STATUSES),
+    note: optionalText(1000),
+    documentsVerified: z.boolean().optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.status === 'REJECTED' && (!val.note || val.note.trim().length < 3)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['note'],
+        message: 'A note of at least 3 characters is required to reject a career case',
+      });
+    }
+  });
+
+export const careerDecisionSchema = z.object({
+  decision: z.enum(['APPROVE', 'REJECT']),
+  effectiveDate: dateOnly.optional(),
+  note: z.string().trim().min(3).max(2000),
+});
+
+export const careerCaseQuerySchema = paginationSchema.extend({
+  status: z.enum(CAREER_CASE_STATUSES).optional(),
+  type: z.enum(CAREER_CASE_TYPES).optional(),
+  employeeId: uuid.optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AssignRoleInput = z.infer<typeof assignRoleSchema>;
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;
@@ -627,3 +931,29 @@ export type OnboardingTaskUpdateInput = z.infer<typeof onboardingTaskUpdateSchem
 export type ReminderScanInput = z.infer<typeof reminderScanSchema>;
 export type DelegationCreateInput = z.infer<typeof delegationCreateSchema>;
 export type DelegationRevokeInput = z.infer<typeof delegationRevokeSchema>;
+export type RequisitionCreateInput = z.infer<typeof requisitionCreateSchema>;
+export type RequisitionUpdateInput = z.infer<typeof requisitionUpdateSchema>;
+export type RequisitionDecisionInput = z.infer<typeof requisitionDecisionSchema>;
+export type ApplicationCreateInput = z.infer<typeof applicationCreateSchema>;
+export type ApplicationTrackInput = z.infer<typeof applicationTrackSchema>;
+export type ApplicationStatusInput = z.infer<typeof applicationStatusSchema>;
+export type OfferCreateInput = z.infer<typeof offerCreateSchema>;
+export type PanelAssignmentCreateInput = z.infer<typeof panelAssignmentCreateSchema>;
+export type InterviewCreateInput = z.infer<typeof interviewCreateSchema>;
+export type ScorecardCreateInput = z.infer<typeof scorecardCreateSchema>;
+export type CandidateQuery = z.infer<typeof candidateQuerySchema>;
+export type AppraisalCycleCreateInput = z.infer<typeof appraisalCycleCreateSchema>;
+export type AppraisalCycleUpdateInput = z.infer<typeof appraisalCycleUpdateSchema>;
+export type AppraisalCreateInput = z.infer<typeof appraisalCreateSchema>;
+export type AppraisalSelfReviewInput = z.infer<typeof appraisalSelfReviewSchema>;
+export type AppraisalReviewInput = z.infer<typeof appraisalReviewSchema>;
+export type AppraisalFinalizeInput = z.infer<typeof appraisalFinalizeSchema>;
+export type TrainingCourseCreateInput = z.infer<typeof trainingCourseCreateSchema>;
+export type TrainingRequestCreateInput = z.infer<typeof trainingRequestCreateSchema>;
+export type TrainingDecisionInput = z.infer<typeof trainingDecisionSchema>;
+export type TrainingStatusInput = z.infer<typeof trainingStatusSchema>;
+export type TrainingCompletionInput = z.infer<typeof trainingCompletionSchema>;
+export type EmployeeSkillCreateInput = z.infer<typeof employeeSkillCreateSchema>;
+export type CareerCaseCreateInput = z.infer<typeof careerCaseCreateSchema>;
+export type CareerProgressInput = z.infer<typeof careerProgressSchema>;
+export type CareerDecisionInput = z.infer<typeof careerDecisionSchema>;

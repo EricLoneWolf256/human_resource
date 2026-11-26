@@ -19,6 +19,11 @@ import contractsRouter from './contracts/routes.js';
 import onboardingRouter from './onboarding/routes.js';
 import remindersRouter from './reminders/routes.js';
 import delegationRouter from './delegation/routes.js';
+import careersRouter from './careers/routes.js';
+import recruitmentRouter from './recruitment/routes.js';
+import performanceRouter from './performance/routes.js';
+import trainingRouter from './training/routes.js';
+import careerRouter from './career/routes.js';
 
 export function createApp() {
   const app = express();
@@ -46,7 +51,7 @@ export function createApp() {
 
   const publicApiPaths = new Set(['/auth/login', '/auth/refresh', '/auth/logout']);
   app.use('/api', (req, res, next) => {
-    if (publicApiPaths.has(req.path)) {
+    if (publicApiPaths.has(req.path) || req.path === '/careers' || req.path.startsWith('/careers/')) {
       next();
       return;
     }
@@ -67,6 +72,11 @@ export function createApp() {
   app.use('/api/onboarding', onboardingRouter);
   app.use('/api/reminders', remindersRouter);
   app.use('/api/delegations', delegationRouter);
+  app.use('/api/careers', careersRouter);
+  app.use('/api/recruitment', recruitmentRouter);
+  app.use('/api/performance', performanceRouter);
+  app.use('/api/training', trainingRouter);
+  app.use('/api/career', careerRouter);
   app.use('/api', auditRouter);
 
   app.use('/api', (_req, _res, next) => next(notFound('Endpoint not found')));
