@@ -33,6 +33,7 @@ export function toSessionUser(ctx: AuthContext): SessionUser {
     email: ctx.user.email,
     status: ctx.user.status,
     mustChangePassword: ctx.user.mustChangePassword,
+    mfaEnabled: ctx.user.mfaEnabled,
     employeeId: ctx.user.employeeId,
     employee: ctx.user.employee
       ? {

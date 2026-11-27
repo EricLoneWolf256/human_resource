@@ -37,10 +37,12 @@ npm test
 Check the service:
 
 ```text
+GET http://localhost:4000/api/health/live
+GET http://localhost:4000/api/health/ready
 GET http://localhost:4000/api/health
 ```
 
-Expected response contains `status: ok` and `database: connected`.
+Expected responses contain `status: ok` or `status: ready` and, for the readiness and legacy endpoints, `database: connected`. Liveness intentionally does not query the database; readiness does.
 
 ## Build-only deployment
 
@@ -58,6 +60,7 @@ Serve the generated `apps/web/dist` with a static web server configured to send 
 
 Before any production use:
 
+- Use `deploy/nginx.conf` as the starting point for HTTPS termination. Replace the example domain and certificate paths, configure certificate renewal, and keep `TRUST_PROXY=loopback` on the API.
 - Terminate HTTPS at a trusted reverse proxy and redirect HTTP.
 - Inject `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN` and storage settings from a secret manager or protected environment variables. Never commit them.
 - Replace demo accounts, disable seed data and enforce strong password policy.
@@ -82,7 +85,7 @@ Outputs are written to `backups/`, which is git-ignored:
 - `storage-<timestamp>.zip` when private documents exist
 - `manifest-<timestamp>.json`
 
-The backup uses `--single-transaction`, routines, triggers and hex blobs. Store backups in an access-controlled location with an appropriate retention schedule.
+The backup uses `--single-transaction`, routines, triggers and hex blobs. The manifest records SHA-256 checksums for the SQL dump and document archive. Store backups in an access-controlled location with an appropriate retention schedule; see doc 24 for the current production-readiness status.
 
 ## Restore
 
@@ -93,7 +96,7 @@ $env:MYSQL_ROOT_PASSWORD = '<local docker compose root password>'
 ./scripts/restore.ps1 -BackupRoot './backups' -ConfirmRestore
 ```
 
-It selects the newest manifest, restores the exact database and document files recorded in that manifest, clears stale private documents before extraction when a storage backup is present, starts MySQL, and prints the employee row count as a basic verification query. Do not mix files from different manifests.
+It selects the newest manifest, verifies the recorded SHA-256 checksums, restores the exact database and document files recorded in that manifest, clears stale private documents before extraction when a storage backup is present, starts MySQL, and prints the employee row count as a basic verification query. Do not mix files from different manifests.
 
 Restore drill procedure:
 
@@ -107,7 +110,7 @@ Restore drill procedure:
 
 ## Monitoring checklist
 
-- API health endpoint and database connectivity.
+- API liveness and readiness endpoints, database connectivity and structured request logs.
 - MySQL container health status.
 - Error rate and latency at the reverse proxy or API logs.
 - Failed login and throttling events in `LoginAttempt` and audit events.

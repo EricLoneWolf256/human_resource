@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import type { Paginated, ReportPayload } from '@umu-hr/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Paginated, ReportPayload, ReportPresetDto, ReportQuery } from '@umu-hr/shared';
 import { api, qs } from '../api';
 import { useAuth } from '../auth';
 import { Button, Card, ErrorBlock, Field, inputClass, Loading, PageHeader } from '../components/ui';
@@ -25,6 +25,14 @@ function defaultFilters(): AppliedFilters {
   const from = new Date(to.getTime());
   from.setUTCDate(from.getUTCDate() - 365);
   return { from: dateOnly(from), to: dateOnly(to), unitId: '' };
+}
+
+function presetQuery(filters: AppliedFilters): ReportQuery {
+  return {
+    from: filters.from || undefined,
+    to: filters.to || undefined,
+    unitId: filters.unitId || undefined,
+  };
 }
 
 function Stat({ label, value, note }: { label: string; value: string | number; note?: string }) {
@@ -89,8 +97,11 @@ function percent(completed: number, total: number): string {
 
 export default function ReportsPage() {
   const { hasPermission } = useAuth();
+  const queryClient = useQueryClient();
   const [draft, setDraft] = useState<AppliedFilters>(defaultFilters);
   const [filters, setFilters] = useState<AppliedFilters>(defaultFilters);
+  const [presetName, setPresetName] = useState('');
+  const [presetError, setPresetError] = useState('');
   const canView = hasPermission('report.view');
   const canExport = hasPermission('report.export');
 
@@ -105,6 +116,45 @@ export default function ReportsPage() {
     enabled: hasPermission('org.view'),
     queryFn: () => api<Paginated<{ id: string; name: string }>>('/org/units?pageSize=100').then((page) => page.items),
   });
+
+  const presets = useQuery({
+    queryKey: ['report-presets'],
+    enabled: canView,
+    queryFn: () => api<ReportPresetDto[]>('/reports/presets'),
+  });
+
+  const savePreset = useMutation({
+    mutationFn: (name: string) =>
+      api<ReportPresetDto>('/reports/presets', {
+        method: 'POST',
+        body: JSON.stringify({ name, query: presetQuery(filters) }),
+      }),
+    onSuccess: () => {
+      setPresetName('');
+      setPresetError('');
+      void queryClient.invalidateQueries({ queryKey: ['report-presets'] });
+    },
+    onError: (caught: Error) => setPresetError(caught.message),
+  });
+
+  const deletePreset = useMutation({
+    mutationFn: (id: string) => api<{ ok: boolean }>(`/reports/presets/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      setPresetError('');
+      void queryClient.invalidateQueries({ queryKey: ['report-presets'] });
+    },
+    onError: (caught: Error) => setPresetError(caught.message),
+  });
+
+  function applyPreset(preset: ReportPresetDto) {
+    const next: AppliedFilters = {
+      from: preset.query.from ?? '',
+      to: preset.query.to ?? '',
+      unitId: preset.query.unitId ?? '',
+    };
+    setDraft(next);
+    setFilters(next);
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -164,6 +214,55 @@ export default function ReportsPage() {
           <Button type="submit" disabled={report.isFetching}>Apply filters</Button>
         </div>
       </form>
+
+      <Card title="Saved report presets" className="mb-5">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[16rem] flex-1">
+            <Field label="Preset name">
+              <input
+                className={inputClass}
+                value={presetName}
+                onChange={(event) => setPresetName(event.target.value)}
+                placeholder="e.g. Current academic year"
+                maxLength={120}
+              />
+            </Field>
+          </div>
+          <Button
+            type="button"
+            onClick={() => savePreset.mutate(presetName.trim())}
+            disabled={!presetName.trim() || savePreset.isPending}
+          >
+            {savePreset.isPending ? 'Saving…' : 'Save current filters'}
+          </Button>
+        </div>
+        {presetError || presets.isError ? (
+          <div className="mt-3">
+            <ErrorBlock message={presetError || presets.error?.message || 'Unable to load saved presets'} />
+          </div>
+        ) : null}
+        {presets.data?.length ? (
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+            {presets.data.map((preset) => (
+              <li key={preset.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                <button type="button" className="text-left text-sm text-brand-700 underline" onClick={() => applyPreset(preset)}>
+                  {preset.name}
+                </button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={deletePreset.isPending}
+                  onClick={() => deletePreset.mutate(preset.id)}
+                >
+                  Delete
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-slate-500">No saved presets yet.</p>
+        )}
+      </Card>
 
       <p className="mb-5 text-xs text-slate-500">
         Generated {new Date(data.period.generatedAt).toLocaleString()} · Aggregate values only · Exports are audited.

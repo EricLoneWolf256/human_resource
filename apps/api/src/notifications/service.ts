@@ -64,6 +64,7 @@ export async function notifyPermissionHolders(
         email: true,
         status: true,
         mustChangePassword: true,
+        mfaEnabled: true,
         employeeId: true,
         lastLoginAt: true,
         employee: { select: { id: true, staffNumber: true, firstName: true, lastName: true, preferredName: true } },

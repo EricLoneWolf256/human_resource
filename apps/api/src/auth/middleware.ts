@@ -58,6 +58,7 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
       email: user.email,
       status: user.status,
       mustChangePassword: user.mustChangePassword,
+      mfaEnabled: user.mfaEnabled,
       employeeId: user.employeeId,
       lastLoginAt: user.lastLoginAt,
       employee: user.employee,

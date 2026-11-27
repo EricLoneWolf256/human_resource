@@ -74,6 +74,7 @@ export interface SessionUser {
   email: string;
   status: UserStatus;
   mustChangePassword: boolean;
+  mfaEnabled: boolean;
   employeeId: string | null;
   employee: {
     id: string;
@@ -86,6 +87,28 @@ export interface SessionUser {
   roleAssignments: RoleAssignmentDto[];
   lastLoginAt: string | null;
 }
+
+export interface MfaSetupDto {
+  secret: string;
+  otpauthUrl: string;
+}
+
+export interface MfaEnabledDto {
+  recoveryCodes: string[];
+}
+
+export interface MfaChallengeDto {
+  mfaRequired: true;
+  challengeToken: string;
+}
+
+export interface LoginSessionDto {
+  mfaRequired?: false;
+  accessToken: string;
+  user: SessionUser;
+}
+
+export type LoginResultDto = LoginSessionDto | MfaChallengeDto;
 
 export interface EmployeeListItem {
   id: string;
@@ -397,6 +420,14 @@ export interface ReportPayload {
   workforce: WorkforceReportDto;
   operations: OperationsReportDto;
   governance: GovernanceReportDto;
+}
+
+export interface ReportPresetDto {
+  id: string;
+  name: string;
+  query: { from?: string; to?: string; unitId?: string };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface LeaveTypeDto {
@@ -848,6 +879,8 @@ export const ERROR_CODES = {
   ACCOUNT_SUSPENDED: 'ACCOUNT_SUSPENDED',
   ACCOUNT_DEACTIVATED: 'ACCOUNT_DEACTIVATED',
   PASSWORD_CHANGE_REQUIRED: 'PASSWORD_CHANGE_REQUIRED',
+  MFA_REQUIRED: 'MFA_REQUIRED',
+  MFA_INVALID_CODE: 'MFA_INVALID_CODE',
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',

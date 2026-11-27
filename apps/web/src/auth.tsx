@@ -1,13 +1,21 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { LoginInput, SessionUser } from '@umu-hr/shared';
+import type {
+  LoginInput,
+  LoginResultDto,
+  MfaRecoverInput,
+  MfaVerifyInput,
+  SessionUser,
+} from '@umu-hr/shared';
 import { api, ClientError } from './api';
 
 interface AuthValue {
   session: SessionUser | null;
   isLoading: boolean;
   hasPermission: (permission: string) => boolean;
-  login: (input: LoginInput) => Promise<void>;
+  login: (input: LoginInput) => Promise<LoginResultDto>;
+  verifyMfa: (input: MfaVerifyInput) => Promise<void>;
+  recoverMfa: (input: MfaRecoverInput) => Promise<void>;
   logout: () => Promise<void>;
   changingPassword: boolean;
   setChangingPassword: (value: boolean) => void;
@@ -31,12 +39,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  function applySession(user: SessionUser) {
+    queryClient.setQueryData(['session'], user);
+    void queryClient.invalidateQueries();
+  }
+
   const loginMutation = useMutation({
-    mutationFn: (input: LoginInput) => api<SessionUser>('/auth/login', { method: 'POST', body: JSON.stringify(input) }),
-    onSuccess: (user) => {
-      queryClient.setQueryData(['session'], user);
-      void queryClient.invalidateQueries();
+    mutationFn: (input: LoginInput) => api<LoginResultDto>('/auth/login', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: (result) => {
+      if (!result.mfaRequired) applySession(result.user);
     },
+  });
+
+  const verifyMfaMutation = useMutation({
+    mutationFn: (input: MfaVerifyInput) => api<SessionUser>('/auth/mfa/verify', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: applySession,
+  });
+
+  const recoverMfaMutation = useMutation({
+    mutationFn: (input: MfaRecoverInput) => api<SessionUser>('/auth/mfa/recover', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: applySession,
   });
 
   const logoutMutation = useMutation({
@@ -52,8 +74,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     isLoading: sessionQuery.isLoading,
     hasPermission: (permission) => session?.permissions.includes(permission) ?? false,
-    login: async (input) => {
-      await loginMutation.mutateAsync(input);
+    login: async (input) => loginMutation.mutateAsync(input),
+    verifyMfa: async (input) => {
+      await verifyMfaMutation.mutateAsync(input);
+    },
+    recoverMfa: async (input) => {
+      await recoverMfaMutation.mutateAsync(input);
     },
     logout: async () => {
       await logoutMutation.mutateAsync();

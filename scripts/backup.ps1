@@ -40,7 +40,9 @@ try {
     createdAt = (Get-Date).ToUniversalTime().ToString('o')
     database = 'hr_system'
     databaseBackup = [System.IO.Path]::GetFileName($databaseFile)
+    databaseSha256 = (Get-FileHash -LiteralPath $databaseFile -Algorithm SHA256).Hash
     storageBackup = if (Test-Path -LiteralPath $storageFile) { [System.IO.Path]::GetFileName($storageFile) } else { $null }
+    storageSha256 = if (Test-Path -LiteralPath $storageFile) { (Get-FileHash -LiteralPath $storageFile -Algorithm SHA256).Hash } else { $null }
     privateDocumentsIncluded = Test-Path -LiteralPath $storageFile
     syntheticDataOnly = $true
   }

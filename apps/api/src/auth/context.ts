@@ -5,6 +5,7 @@ export interface AuthUserSafe {
   email: string;
   status: 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
   mustChangePassword: boolean;
+  mfaEnabled: boolean;
   employeeId: string | null;
   lastLoginAt: Date | null;
   employee: {

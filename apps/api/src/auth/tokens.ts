@@ -29,6 +29,32 @@ export async function verifyAccessToken(
   }
 }
 
+export interface MfaChallenge {
+  userId: string;
+  loginMarker: string;
+}
+
+export async function signMfaChallengeToken(userId: string, loginMarker: string): Promise<string> {
+  return new SignJWT({ purpose: 'mfa', loginMarker })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(userId)
+    .setIssuer(ISSUER)
+    .setAudience(AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime('5m')
+    .sign(secretKey);
+}
+
+export async function verifyMfaChallengeToken(token: string): Promise<MfaChallenge | null> {
+  try {
+    const { payload } = await jwtVerify(token, secretKey, { issuer: ISSUER, audience: AUDIENCE });
+    if (!payload.sub || payload.purpose !== 'mfa' || typeof payload.loginMarker !== 'string') return null;
+    return { userId: payload.sub, loginMarker: payload.loginMarker };
+  } catch {
+    return null;
+  }
+}
+
 export function generateRefreshToken(): string {
   return randomBytes(48).toString('base64url');
 }

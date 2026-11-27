@@ -168,6 +168,10 @@ async function ensureReminder(input: ReminderSeed) {
 }
 
 async function main() {
+  if (config.ALLOW_DEMO_SEED !== 'true') {
+    throw new Error('Demo seeding is disabled. Set ALLOW_DEMO_SEED=true only for synthetic demonstration data.');
+  }
+
   for (const permission of PERMISSIONS) {
     await prisma.permission.upsert({
       where: { key: permission.key },

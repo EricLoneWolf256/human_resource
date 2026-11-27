@@ -5,6 +5,7 @@ import { ERROR_CODES } from '@umu-hr/shared';
 import { config } from './config.js';
 import { prisma } from './db.js';
 import { asyncRoute, errorHandler, forbidden, notFound } from './errors.js';
+import { requestLogger } from './logger.js';
 import { authenticate } from './auth/middleware.js';
 import authRouter from './auth/routes.js';
 import accessRouter from './access/routes.js';
@@ -30,6 +31,9 @@ import reportsRouter from './reports/routes.js';
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
+  if (config.TRUST_PROXY !== 'false') {
+    app.set('trust proxy', config.TRUST_PROXY === 'loopback' ? 'loopback' : true);
+  }
   app.use(helmet());
   app.use(
     cors({
@@ -38,6 +42,23 @@ export function createApp() {
     }),
   );
   app.use(express.json({ limit: '1mb' }));
+  app.use(requestLogger);
+
+  app.get('/api/health/live', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  app.get(
+    '/api/health/ready',
+    asyncRoute(async (_req, res) => {
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+        res.json({ status: 'ready', database: 'connected', timestamp: new Date().toISOString() });
+      } catch {
+        res.status(503).json({ status: 'unavailable', database: 'disconnected' });
+      }
+    }),
+  );
 
   app.get(
     '/api/health',
@@ -51,7 +72,13 @@ export function createApp() {
     }),
   );
 
-  const publicApiPaths = new Set(['/auth/login', '/auth/refresh', '/auth/logout']);
+  const publicApiPaths = new Set([
+    '/auth/login',
+    '/auth/refresh',
+    '/auth/logout',
+    '/auth/mfa/verify',
+    '/auth/mfa/recover',
+  ]);
   app.use('/api', (req, res, next) => {
     if (publicApiPaths.has(req.path) || req.path === '/careers' || req.path.startsWith('/careers/')) {
       next();
@@ -64,6 +91,30 @@ export function createApp() {
   app.use('/api', (req, _res, next) => {
     if (req.auth?.user.mustChangePassword && !passwordChangeExemptPaths.has(req.path)) {
       next(forbidden('Password change required', ERROR_CODES.PASSWORD_CHANGE_REQUIRED));
+      return;
+    }
+    next();
+  });
+
+  const privilegedPermissions = ['user.manage', 'role.manage', 'audit.view', 'access.delegate', 'report.export'];
+  const mfaExemptPaths = new Set([
+    '/auth/me',
+    '/auth/logout',
+    '/auth/change-password',
+    '/auth/mfa/setup',
+    '/auth/mfa/enable',
+    '/auth/mfa/disable',
+  ]);
+  app.use('/api', (req, _res, next) => {
+    const auth = req.auth;
+    if (
+      config.REQUIRE_MFA_FOR_PRIVILEGED === 'true' &&
+      auth &&
+      !auth.user.mfaEnabled &&
+      !mfaExemptPaths.has(req.path) &&
+      privilegedPermissions.some((permission) => auth.permissions.has(permission))
+    ) {
+      next(forbidden('MFA enrolment is required for privileged accounts', ERROR_CODES.MFA_REQUIRED));
       return;
     }
     next();

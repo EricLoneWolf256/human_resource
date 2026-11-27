@@ -70,6 +70,22 @@ export const changePasswordSchema = z.object({
   newPassword: newPasswordSchema,
 });
 
+const mfaCodeSchema = z.string().trim().regex(/^\d{6}$/, 'Expected a 6-digit authenticator code');
+const mfaChallengeTokenSchema = z.string().min(1).max(512);
+
+export const mfaVerifySchema = z.object({
+  challengeToken: mfaChallengeTokenSchema,
+  code: mfaCodeSchema,
+});
+
+export const mfaRecoverSchema = z.object({
+  challengeToken: mfaChallengeTokenSchema,
+  recoveryCode: z.string().trim().min(8).max(64),
+});
+
+export const mfaEnableSchema = z.object({ code: mfaCodeSchema });
+export const mfaDisableSchema = z.object({ code: mfaCodeSchema });
+
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -901,7 +917,16 @@ export const reportQuerySchema = z
     }
   });
 
+export const reportPresetCreateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  query: reportQuerySchema,
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
+export type MfaVerifyInput = z.infer<typeof mfaVerifySchema>;
+export type MfaRecoverInput = z.infer<typeof mfaRecoverSchema>;
+export type MfaEnableInput = z.infer<typeof mfaEnableSchema>;
+export type MfaDisableInput = z.infer<typeof mfaDisableSchema>;
 export type AssignRoleInput = z.infer<typeof assignRoleSchema>;
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;
 export type EmployeeUpdateInput = z.infer<typeof employeeUpdateSchema>;
@@ -974,3 +999,4 @@ export type CareerCaseCreateInput = z.infer<typeof careerCaseCreateSchema>;
 export type CareerProgressInput = z.infer<typeof careerProgressSchema>;
 export type CareerDecisionInput = z.infer<typeof careerDecisionSchema>;
 export type ReportQuery = z.infer<typeof reportQuerySchema>;
+export type ReportPresetCreateInput = z.infer<typeof reportPresetCreateSchema>;

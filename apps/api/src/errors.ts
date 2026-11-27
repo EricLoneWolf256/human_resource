@@ -1,6 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { ZodError } from 'zod';
 import { ERROR_CODES, type ApiErrorBody } from '@umu-hr/shared';
+import { logEvent } from './logger.js';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -78,6 +79,6 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
 
-  console.error('Unhandled API error:', err);
+  logEvent('api.error', { message: err instanceof Error ? err.message : 'Unknown error' });
   res.status(500).json({ error: { code: ERROR_CODES.INTERNAL, message: 'Internal server error' } });
 }

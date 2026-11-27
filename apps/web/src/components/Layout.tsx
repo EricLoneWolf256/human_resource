@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import MfaDialog from './MfaDialog';
 import { Badge, Button, ErrorBlock, Field, inputClass } from './ui';
 
 interface NavItem {
@@ -119,6 +120,7 @@ export default function Layout() {
   const { session, hasPermission, logout } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [showMfa, setShowMfa] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const unread = useQuery({
     queryKey: ['notifications', 'unread-count'],
@@ -188,6 +190,9 @@ export default function Layout() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={() => setShowMfa(true)}>
+                {session?.mfaEnabled ? 'MFA enabled' : 'Set up MFA'}
+              </Button>
               <Button variant="secondary" onClick={() => setShowPassword(true)}>Change password</Button>
               <Button
                 variant="secondary"
@@ -217,6 +222,7 @@ export default function Layout() {
       </div>
 
       {showPassword ? <ChangePasswordDialog onClose={() => setShowPassword(false)} /> : null}
+      {showMfa ? <MfaDialog onClose={() => setShowMfa(false)} /> : null}
     </>
   );
 }

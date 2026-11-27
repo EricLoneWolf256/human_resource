@@ -1,16 +1,38 @@
 import { Router, type Request, type Response } from 'express';
-import { changePasswordSchema, ERROR_CODES, loginSchema } from '@umu-hr/shared';
+import {
+  changePasswordSchema,
+  ERROR_CODES,
+  loginSchema,
+  mfaDisableSchema,
+  mfaEnableSchema,
+  mfaRecoverSchema,
+  mfaVerifySchema,
+} from '@umu-hr/shared';
 import { config } from '../config.js';
 import { prisma } from '../db.js';
-import { asyncRoute, unauthorized } from '../errors.js';
+import { conflict, asyncRoute, unauthorized } from '../errors.js';
 import { toSessionUser } from '../mappers.js';
 import { buildAccessContext } from '../access/policy.js';
 import { recordAudit } from '../audit/service.js';
 import { requireAuth } from '../access/middleware.js';
+import { metadata } from '../phase2/service.js';
 import type { AuthUserSafe } from './context.js';
 import { clearRefreshCookie, readRefreshToken, setRefreshCookie } from './cookies.js';
 import { hashPassword, verifyPassword } from './password.js';
-import { generateRefreshToken, hashRefreshToken, signAccessToken } from './tokens.js';
+import {
+  generateRefreshToken,
+  hashRefreshToken,
+  signAccessToken,
+  signMfaChallengeToken,
+  verifyMfaChallengeToken,
+} from './tokens.js';
+import {
+  buildOtpauthUrl,
+  generateRecoveryCodes,
+  generateTotpSecret,
+  hashRecoveryCode,
+  verifyTotp,
+} from './totp.js';
 
 const router = Router();
 const THROTTLE_WINDOW_MS = 15 * 60 * 1000;
@@ -32,6 +54,7 @@ async function loadSafeUser(userId: string): Promise<AuthUserSafe | null> {
       email: true,
       status: true,
       mustChangePassword: true,
+      mfaEnabled: true,
       employeeId: true,
       lastLoginAt: true,
       employee: { select: employeeSelect },
@@ -72,6 +95,26 @@ async function sessionResponse(userId: string, req: Request, res: Response) {
   return { accessToken: await createSession(userId, req, res), user: toSessionUser(ctx) };
 }
 
+async function completeLogin(userId: string, email: string, req: Request, res: Response) {
+  await Promise.all([
+    prisma.loginAttempt.create({ data: { email, ipAddress: req.ip ?? null, success: true } }),
+    prisma.loginAttempt.deleteMany({ where: { attemptedAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } } }),
+    prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } }),
+  ]);
+
+  const result = await sessionResponse(userId, req, res);
+  await recordAudit({
+    actorId: userId,
+    actorLabel: email,
+    action: 'auth.login.success',
+    entityType: 'User',
+    entityId: userId,
+    ipAddress: req.ip ?? null,
+    userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null,
+  });
+  return result;
+}
+
 router.post(
   '/login',
   asyncRoute(async (req, res) => {
@@ -94,6 +137,7 @@ router.post(
         passwordHash: true,
         status: true,
         mustChangePassword: true,
+        mfaEnabled: true,
         employeeId: true,
         lastLoginAt: true,
         employee: { select: employeeSelect },
@@ -118,23 +162,186 @@ router.post(
       );
     }
 
-    await Promise.all([
-      prisma.loginAttempt.create({ data: { email, ipAddress: req.ip ?? null, success: true } }),
-      prisma.loginAttempt.deleteMany({ where: { attemptedAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } } }),
-      prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
-    ]);
+    if (user.mfaEnabled) {
+      const challengeToken = await signMfaChallengeToken(user.id, user.lastLoginAt?.toISOString() ?? '');
+      await recordAudit({
+        actorId: user.id,
+        actorLabel: user.email,
+        action: 'auth.mfa.challenge',
+        entityType: 'User',
+        entityId: user.id,
+        ipAddress: req.ip ?? null,
+        userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null,
+      });
+      res.json({ mfaRequired: true, challengeToken });
+      return;
+    }
 
-    const result = await sessionResponse(user.id, req, res);
+    res.json(await completeLogin(user.id, user.email, req, res));
+  }),
+);
+
+router.post(
+  '/mfa/verify',
+  asyncRoute(async (req, res) => {
+    const input = mfaVerifySchema.parse(req.body);
+    const challenge = await verifyMfaChallengeToken(input.challengeToken);
+    if (!challenge) throw unauthorized('MFA challenge expired. Sign in again.', ERROR_CODES.UNAUTHORIZED);
+
+    const user = await prisma.user.findUnique({
+      where: { id: challenge.userId },
+      select: { id: true, email: true, status: true, mfaEnabled: true, mfaSecret: true, lastLoginAt: true },
+    });
+    if (!user || user.status !== 'ACTIVE' || !user.mfaEnabled || !user.mfaSecret) {
+      throw unauthorized('MFA is not available for this account', ERROR_CODES.UNAUTHORIZED);
+    }
+    if ((user.lastLoginAt?.toISOString() ?? '') !== challenge.loginMarker) {
+      throw unauthorized('MFA challenge already used. Sign in again.', ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const failures = await prisma.loginAttempt.count({
+      where: { email: user.email, success: false, attemptedAt: { gte: new Date(Date.now() - THROTTLE_WINDOW_MS) } },
+    });
+    if (failures >= MAX_FAILED_ATTEMPTS) {
+      throw unauthorized('Too many failed verification attempts. Try again in 15 minutes.', ERROR_CODES.RATE_LIMITED);
+    }
+    if (!verifyTotp(user.mfaSecret, input.code)) {
+      await prisma.loginAttempt.create({ data: { email: user.email, ipAddress: req.ip ?? null, success: false } });
+      throw unauthorized('Invalid authenticator code', ERROR_CODES.MFA_INVALID_CODE);
+    }
+
     await recordAudit({
       actorId: user.id,
       actorLabel: user.email,
-      action: 'auth.login.success',
+      action: 'auth.mfa.verified',
       entityType: 'User',
       entityId: user.id,
       ipAddress: req.ip ?? null,
       userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null,
     });
-    res.json(result);
+    res.json(await completeLogin(user.id, user.email, req, res));
+  }),
+);
+
+router.post(
+  '/mfa/recover',
+  asyncRoute(async (req, res) => {
+    const input = mfaRecoverSchema.parse(req.body);
+    const challenge = await verifyMfaChallengeToken(input.challengeToken);
+    if (!challenge) throw unauthorized('MFA challenge expired. Sign in again.', ERROR_CODES.UNAUTHORIZED);
+
+    const user = await prisma.user.findUnique({
+      where: { id: challenge.userId },
+      select: { id: true, email: true, status: true, mfaEnabled: true, lastLoginAt: true },
+    });
+    if (!user || user.status !== 'ACTIVE' || !user.mfaEnabled) {
+      throw unauthorized('MFA is not available for this account', ERROR_CODES.UNAUTHORIZED);
+    }
+    if ((user.lastLoginAt?.toISOString() ?? '') !== challenge.loginMarker) {
+      throw unauthorized('MFA challenge already used. Sign in again.', ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const code = await prisma.mfaRecoveryCode.findFirst({
+      where: { userId: user.id, codeHash: hashRecoveryCode(input.recoveryCode), usedAt: null },
+    });
+    if (!code) {
+      await prisma.loginAttempt.create({ data: { email: user.email, ipAddress: req.ip ?? null, success: false } });
+      throw unauthorized('Invalid recovery code', ERROR_CODES.MFA_INVALID_CODE);
+    }
+
+    await prisma.mfaRecoveryCode.update({ where: { id: code.id }, data: { usedAt: new Date() } });
+    await recordAudit({
+      actorId: user.id,
+      actorLabel: user.email,
+      action: 'auth.mfa.recovery_used',
+      entityType: 'User',
+      entityId: user.id,
+      reason: 'Recovery code used to complete sign-in',
+      ipAddress: req.ip ?? null,
+      userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null,
+    });
+    res.json(await completeLogin(user.id, user.email, req, res));
+  }),
+);
+
+router.post(
+  '/mfa/setup',
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    if (req.auth!.user.mfaEnabled) throw conflict('MFA is already enabled');
+    const secret = generateTotpSecret();
+    await prisma.user.update({ where: { id: req.auth!.userId }, data: { mfaSecret: secret } });
+    await recordAudit({
+      ...metadata(req),
+      actorId: req.auth!.userId,
+      action: 'auth.mfa.setup',
+      entityType: 'User',
+      entityId: req.auth!.userId,
+    });
+    res.json({ secret, otpauthUrl: buildOtpauthUrl(req.auth!.user.email, secret) });
+  }),
+);
+
+router.post(
+  '/mfa/enable',
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const input = mfaEnableSchema.parse(req.body);
+    if (req.auth!.user.mfaEnabled) throw conflict('MFA is already enabled');
+    const user = await prisma.user.findUnique({
+      where: { id: req.auth!.userId },
+      select: { id: true, mfaSecret: true },
+    });
+    if (!user?.mfaSecret) throw conflict('Start MFA setup before enabling it');
+    if (!verifyTotp(user.mfaSecret, input.code)) {
+      throw unauthorized('Invalid authenticator code', ERROR_CODES.MFA_INVALID_CODE);
+    }
+
+    const recoveryCodes = generateRecoveryCodes();
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: user.id }, data: { mfaEnabled: true } }),
+      prisma.mfaRecoveryCode.deleteMany({ where: { userId: user.id } }),
+      prisma.mfaRecoveryCode.createMany({
+        data: recoveryCodes.map((code) => ({ userId: user.id, codeHash: hashRecoveryCode(code) })),
+      }),
+    ]);
+    await recordAudit({
+      ...metadata(req),
+      actorId: user.id,
+      action: 'auth.mfa.enabled',
+      entityType: 'User',
+      entityId: user.id,
+    });
+    res.json({ recoveryCodes });
+  }),
+);
+
+router.post(
+  '/mfa/disable',
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const input = mfaDisableSchema.parse(req.body);
+    const user = await prisma.user.findUnique({
+      where: { id: req.auth!.userId },
+      select: { id: true, mfaEnabled: true, mfaSecret: true },
+    });
+    if (!user?.mfaEnabled || !user.mfaSecret) throw conflict('MFA is not enabled');
+    if (!verifyTotp(user.mfaSecret, input.code)) {
+      throw unauthorized('Invalid authenticator code', ERROR_CODES.MFA_INVALID_CODE);
+    }
+
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: user.id }, data: { mfaEnabled: false, mfaSecret: null } }),
+      prisma.mfaRecoveryCode.deleteMany({ where: { userId: user.id } }),
+    ]);
+    await recordAudit({
+      ...metadata(req),
+      actorId: user.id,
+      action: 'auth.mfa.disabled',
+      entityType: 'User',
+      entityId: user.id,
+    });
+    res.json({ ok: true });
   }),
 );
 

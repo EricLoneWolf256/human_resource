@@ -9,7 +9,7 @@ export const DEMO_PASSWORD = 'Demo#Pass123';
 const FOUNDATION = new Date('2020-01-01T00:00:00.000Z');
 
 const TABLES = [
-  'AuditEvent', 'Notification', 'Delegation',
+  'AuditEvent', 'Notification', 'Delegation', 'ReportPreset', 'MfaRecoveryCode',
   'AppraisalObjective', 'Appraisal', 'AppraisalCycle',
   'ApplicationEvent', 'Interview', 'Scorecard', 'PanelAssignment', 'Application', 'Applicant', 'Vacancy',
   'TrainingRecord', 'TrainingRequest', 'TrainingCourse', 'EmployeeSkill',

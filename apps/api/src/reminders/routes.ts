@@ -53,6 +53,7 @@ const candidateUserSelect = {
   email: true,
   status: true,
   mustChangePassword: true,
+  mfaEnabled: true,
   employeeId: true,
   lastLoginAt: true,
   employee: {

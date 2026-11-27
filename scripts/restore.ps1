@@ -26,12 +26,20 @@ if (-not $manifestFile) { throw "No manifest-*.json backup manifest found in $ba
 $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
 $databaseFile = Join-Path $backupPath $manifest.databaseBackup
 if (-not (Test-Path -LiteralPath $databaseFile)) { throw "Database backup $($manifest.databaseBackup) is missing" }
+if ([string]::IsNullOrWhiteSpace($manifest.databaseSha256)) { throw 'Backup manifest has no database SHA-256 checksum' }
+if ((Get-FileHash -LiteralPath $databaseFile -Algorithm SHA256).Hash -ne $manifest.databaseSha256) {
+  throw "Database backup checksum does not match $($manifest.databaseBackup)"
+}
 
 $privateStorage = Join-Path $projectRoot 'apps\api\storage\private'
 $storageFile = $null
 if ($manifest.storageBackup) {
   $storageFile = Join-Path $backupPath $manifest.storageBackup
   if (-not (Test-Path -LiteralPath $storageFile)) { throw "Storage backup $($manifest.storageBackup) is missing" }
+  if ([string]::IsNullOrWhiteSpace($manifest.storageSha256)) { throw 'Backup manifest has no storage SHA-256 checksum' }
+  if ((Get-FileHash -LiteralPath $storageFile -Algorithm SHA256).Hash -ne $manifest.storageSha256) {
+    throw "Storage backup checksum does not match $($manifest.storageBackup)"
+  }
 }
 
 Push-Location -LiteralPath $projectRoot
