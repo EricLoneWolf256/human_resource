@@ -1,9 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { ERROR_CODES } from '@umu-hr/shared';
 import { config } from './config.js';
 import { prisma } from './db.js';
-import { asyncRoute, errorHandler, notFound } from './errors.js';
+import { asyncRoute, errorHandler, forbidden, notFound } from './errors.js';
 import { authenticate } from './auth/middleware.js';
 import authRouter from './auth/routes.js';
 import accessRouter from './access/routes.js';
@@ -24,6 +25,7 @@ import recruitmentRouter from './recruitment/routes.js';
 import performanceRouter from './performance/routes.js';
 import trainingRouter from './training/routes.js';
 import careerRouter from './career/routes.js';
+import reportsRouter from './reports/routes.js';
 
 export function createApp() {
   const app = express();
@@ -58,6 +60,15 @@ export function createApp() {
     authenticate(req, res, next);
   });
 
+  const passwordChangeExemptPaths = new Set(['/auth/me', '/auth/change-password', '/auth/logout']);
+  app.use('/api', (req, _res, next) => {
+    if (req.auth?.user.mustChangePassword && !passwordChangeExemptPaths.has(req.path)) {
+      next(forbidden('Password change required', ERROR_CODES.PASSWORD_CHANGE_REQUIRED));
+      return;
+    }
+    next();
+  });
+
   app.use('/api/auth', authRouter);
   app.use('/api/access', accessRouter);
   app.use('/api/org', orgRouter);
@@ -77,6 +88,7 @@ export function createApp() {
   app.use('/api/performance', performanceRouter);
   app.use('/api/training', trainingRouter);
   app.use('/api/career', careerRouter);
+  app.use('/api/reports', reportsRouter);
   app.use('/api', auditRouter);
 
   app.use('/api', (_req, _res, next) => next(notFound('Endpoint not found')));

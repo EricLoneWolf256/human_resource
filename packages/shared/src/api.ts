@@ -330,6 +330,75 @@ export interface DashboardPayload {
   } | null;
 }
 
+export interface ReportPeriodDto {
+  from: string;
+  to: string;
+  unitId: string | null;
+  unitName: string | null;
+  generatedAt: string;
+  scopeLabel: string;
+}
+
+export interface ReportMetricDto {
+  label: string;
+  count: number;
+}
+
+export interface ReportCompletionDto {
+  completed: number;
+  total: number;
+}
+
+export interface WorkforceReportDto {
+  total: number;
+  byStatus: Record<string, number>;
+  byEmploymentType: Record<string, number>;
+  byUnit: ReportMetricDto[];
+  byGrade: ReportMetricDto[];
+  academic: { academic: number; nonAcademic: number };
+  hires: number;
+  exits: number;
+}
+
+export interface OperationsReportDto {
+  leaveByStatus: Record<string, number>;
+  leaveByType: ReportMetricDto[];
+  leaveDaysApproved: number;
+  pendingLeave: number;
+  contractsExpiring30Days: number;
+  contractsByRenewalStatus: Record<string, number>;
+  requestsByCategory: ReportMetricDto[];
+  requestsByStatus: Record<string, number>;
+  openRequests: number;
+  averageRequestResolutionDays: number | null;
+  onboardingCompletion: ReportCompletionDto;
+  probationPending: number;
+  appraisalCompletion: ReportCompletionDto;
+  overdueAppraisals: number;
+  trainingCompletion: ReportCompletionDto;
+  certificatesExpiring90Days: number;
+  vacanciesPublished: number;
+  applicationsReceived: number;
+  applicationsByStatus: Record<string, number>;
+  averageTimeToFillDays: number | null;
+}
+
+export interface GovernanceReportDto {
+  activeRoleAssignments: number | null;
+  expiringRoleAssignments30Days: number | null;
+  activeDelegations: number | null;
+  expiringDelegations30Days: number | null;
+  auditEvents: number | null;
+  reportExports: number | null;
+}
+
+export interface ReportPayload {
+  period: ReportPeriodDto;
+  workforce: WorkforceReportDto;
+  operations: OperationsReportDto;
+  governance: GovernanceReportDto;
+}
+
 export interface LeaveTypeDto {
   id: string;
   code: string;
@@ -778,6 +847,7 @@ export const ERROR_CODES = {
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
   ACCOUNT_SUSPENDED: 'ACCOUNT_SUSPENDED',
   ACCOUNT_DEACTIVATED: 'ACCOUNT_DEACTIVATED',
+  PASSWORD_CHANGE_REQUIRED: 'PASSWORD_CHANGE_REQUIRED',
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',

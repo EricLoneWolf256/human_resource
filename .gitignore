@@ -8,6 +8,7 @@ coverage/
 *.log
 apps/api/storage/private/
 apps/api/storage/private-test/
+backups/
 .vite/
 .DS_Store
 Thumbs.db

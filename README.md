@@ -1,6 +1,6 @@
 ﻿# University HR and Staff Management System
 
-Phases 1–3 implementation of the centralized HR and staff management platform for the university project. The repository includes the original specification pack in `docs/`, a Prisma-backed Express API, and a React web client.
+Phase 4 demonstration-ready implementation of the centralized HR and staff management platform for the university project. The repository includes the specification pack and Phase 4 handover documentation in `docs/`, a Prisma-backed Express API with scoped reporting, and a responsive React web client.
 
 ## Project direction
 
@@ -10,7 +10,7 @@ Phases 1–3 implementation of the centralized HR and staff management platform 
 - Granular RBAC with scope restrictions is enforced on every protected API route.
 - All records are new; no legacy HR application migration is assumed.
 
-## Implemented across Phases 1–3
+## Implemented across Phases 1–4
 
 - Authentication with access/refresh tokens, session revocation, login throttling, and password changes.
 - Role and scope assignment with effective role assignments, delegation, and audit logging.
@@ -20,7 +20,9 @@ Phases 1–3 implementation of the centralized HR and staff management platform 
 - Vacancy requisitions, a public careers portal, application tracking, interview panels, scorecards, offers, and candidate responses.
 - Performance appraisal cycles, staged reviews, finalization, training courses and requests, completion records, and employee skills.
 - Promotion, transfer, and acting appointment cases with eligibility, committee, decision, and effective assignment workflows.
-- React web client for all management modules plus the unauthenticated careers portal at `/careers`.
+- Scoped workforce, HR operations and governance reports with date/unit filters, CSV export and audited export parameters.
+- React web client for all management modules, a responsive Reports & analytics page, accessibility refinements, and the unauthenticated careers portal at `/careers`.
+- Backup/restore scripts, deployment runbook, monitoring guidance, demo script, user guide, presentation and Phase 4 acceptance evidence.
 
 ## Quick start
 
@@ -55,7 +57,15 @@ npm run build
 npm test
 ```
 
-The API test suite uses `apps/api/.env.test` and the `hr_system_test` database. GitHub Actions runs lint, typecheck, build, Prisma migrations, and tests against MySQL 8.4.
+The API test suite uses `apps/api/.env.test` and the `hr_system_test` database. GitHub Actions runs lint, typecheck, build, Prisma migrations, and tests against MySQL 8.4. Phase 4 scope, export-control and account-deactivation evidence is in `test/phase4.test.ts` and `docs/20-phase4-test-report.md`.
+
+For operational drills on synthetic data:
+
+```powershell
+$env:MYSQL_ROOT_PASSWORD = '<local docker compose root password>'
+./scripts/backup.ps1
+./scripts/restore.ps1 -BackupRoot './backups' -ConfirmRestore
+```
 
 ## Toolchain note
 
@@ -81,7 +91,14 @@ See `docs/` for the complete specification pack:
 14. Implementation Roadmap
 15. Dated Roadmap (23 Nov – 31 Dec 2026)
 16. Implementation Decisions
+17. Phase 4 User Guide
+18. Phase 4 Demo Script
+19. Phase 4 Presentation
+20. Phase 4 Test Report
+21. Phase 4 Security and Accessibility Review
+22. Phase 4 Deployment and Operations Runbook
+23. Phase 4 Backlog and Handover
 
 ## Status
 
-Phases 1–3 are implemented and verified with lint, typecheck, build, and the full API acceptance suite. The remaining roadmap work is Phase 4 reporting/polish/deployment and Phase 5 future extensions.
+Phases 1–4 are implemented as a synthetic-data demonstration release. Lint, typecheck, build and the full API acceptance suite cover the core workflows, scoped reports, export control, and RBAC boundary checks. Phase 5 remains a future extension for payroll, external notification channels, SSO and advanced workforce analytics.

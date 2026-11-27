@@ -16,7 +16,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 export function Card({ title, children, className = '' }: { title?: string; children: ReactNode; className?: string }) {
   return (
     <section className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
-      {title ? <div className="border-b border-slate-200 px-5 py-3 font-semibold text-slate-800">{title}</div> : null}
+      {title ? <h2 className="border-b border-slate-200 px-5 py-3 text-base font-semibold text-slate-800">{title}</h2> : null}
       <div className="p-5">{children}</div>
     </section>
   );
@@ -54,25 +54,25 @@ export function Button({ variant = 'primary', className = '', ...props }: Button
   return (
     <button
       {...props}
-      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
     />
   );
 }
 
 export function TextLink({ to, children }: { to: string; children: ReactNode }) {
-  return <Link className="text-brand-600 hover:underline" to={to}>{children}</Link>;
+  return <Link className="rounded text-brand-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" to={to}>{children}</Link>;
 }
 
 export function Loading({ label = 'Loading…' }: { label?: string }) {
-  return <div className="py-12 text-center text-sm text-slate-500">{label}</div>;
+  return <div className="py-12 text-center text-sm text-slate-500" role="status" aria-live="polite">{label}</div>;
 }
 
 export function ErrorBlock({ message }: { message: string }) {
-  return <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{message}</div>;
+  return <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert">{message}</div>;
 }
 
 export function EmptyState({ message }: { message: string }) {
-  return <div className="py-10 text-center text-sm text-slate-500">{message}</div>;
+  return <div className="py-10 text-center text-sm text-slate-500" role="status">{message}</div>;
 }
 
 export function Pagination({
@@ -88,7 +88,7 @@ export function Pagination({
 }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
       <span>
         Page {page} of {pages} · {total} record{total === 1 ? '' : 's'}
       </span>

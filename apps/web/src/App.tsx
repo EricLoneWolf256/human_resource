@@ -22,6 +22,7 @@ import CareersPage from './pages/CareersPage';
 import PerformancePage from './pages/PerformancePage';
 import TrainingPage from './pages/TrainingPage';
 import CareerPage from './pages/CareerPage';
+import ReportsPage from './pages/ReportsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 function RequireAuth() {
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="performance" element={<PerformancePage />} />
         <Route path="training" element={<TrainingPage />} />
         <Route path="career" element={<CareerPage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

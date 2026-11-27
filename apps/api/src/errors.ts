@@ -20,8 +20,10 @@ export const badRequest = (message: string, details?: unknown) =>
   new ApiError(400, ERROR_CODES.VALIDATION_ERROR, message, details);
 export const unauthorized = (message = 'Authentication required', code: string = ERROR_CODES.UNAUTHORIZED) =>
   new ApiError(401, code, message);
-export const forbidden = (message = 'You do not have permission to perform this action') =>
-  new ApiError(403, ERROR_CODES.FORBIDDEN, message);
+export const forbidden = (
+  message = 'You do not have permission to perform this action',
+  code: string = ERROR_CODES.FORBIDDEN,
+) => new ApiError(403, code, message);
 export const notFound = (message = 'Resource not found') =>
   new ApiError(404, ERROR_CODES.NOT_FOUND, message);
 export const conflict = (message: string) => new ApiError(409, ERROR_CODES.CONFLICT, message);

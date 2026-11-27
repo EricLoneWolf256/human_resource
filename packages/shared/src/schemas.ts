@@ -885,6 +885,22 @@ export const careerCaseQuerySchema = paginationSchema.extend({
   employeeId: uuid.optional(),
 });
 
+export const reportQuerySchema = z
+  .object({
+    from: dateOnly.optional(),
+    to: dateOnly.optional(),
+    unitId: uuid.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.from && value.to && value.to < value.from) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['to'],
+        message: 'to must be on or after from',
+      });
+    }
+  });
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AssignRoleInput = z.infer<typeof assignRoleSchema>;
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;
@@ -957,3 +973,4 @@ export type EmployeeSkillCreateInput = z.infer<typeof employeeSkillCreateSchema>
 export type CareerCaseCreateInput = z.infer<typeof careerCaseCreateSchema>;
 export type CareerProgressInput = z.infer<typeof careerProgressSchema>;
 export type CareerDecisionInput = z.infer<typeof careerDecisionSchema>;
+export type ReportQuery = z.infer<typeof reportQuerySchema>;

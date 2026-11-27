@@ -78,19 +78,22 @@ export default function DashboardPage() {
           {data.recentHires.length === 0 ? (
             <EmptyState message="No hires in the last 30 days" />
           ) : (
-            <table className="table">
-              <thead><tr><th>Name</th><th>Staff number</th><th>Hire date</th><th>Unit</th></tr></thead>
-              <tbody>
-                {data.recentHires.map((item) => (
-                  <tr key={item.id}>
-                    <td><TextLink to={`/employees/${item.id}`}>{item.fullName}</TextLink></td>
-                    <td>{item.staffNumber}</td>
-                    <td>{formatDate(item.hireDate)}</td>
-                    <td>{item.unitName ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div role="region" aria-label="Recent hires table" tabIndex={0} className="overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+              <table className="table">
+                <caption className="sr-only">Recent hires</caption>
+                <thead><tr><th scope="col">Name</th><th scope="col">Staff number</th><th scope="col">Hire date</th><th scope="col">Unit</th></tr></thead>
+                <tbody>
+                  {data.recentHires.map((item) => (
+                    <tr key={item.id}>
+                      <td><TextLink to={`/employees/${item.id}`}>{item.fullName}</TextLink></td>
+                      <td>{item.staffNumber}</td>
+                      <td>{formatDate(item.hireDate)}</td>
+                      <td>{item.unitName ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
 
@@ -98,18 +101,21 @@ export default function DashboardPage() {
           {data.expiringContracts.length === 0 ? (
             <EmptyState message="No expiring contracts in the next 90 days" />
           ) : (
-            <table className="table">
-              <thead><tr><th>Document</th><th>Employee</th><th>Expiry</th></tr></thead>
-              <tbody>
-                {data.expiringContracts.map((item) => (
-                  <tr key={item.documentId}>
-                    <td>{item.title}</td>
-                    <td>{item.employeeName}</td>
-                    <td>{formatDate(item.expiryDate)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div role="region" aria-label="Expiring contracts table" tabIndex={0} className="overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+              <table className="table">
+                <caption className="sr-only">Contracts expiring soon</caption>
+                <thead><tr><th scope="col">Document</th><th scope="col">Employee</th><th scope="col">Expiry</th></tr></thead>
+                <tbody>
+                  {data.expiringContracts.map((item) => (
+                    <tr key={item.documentId}>
+                      <td>{item.title}</td>
+                      <td>{item.employeeName}</td>
+                      <td>{formatDate(item.expiryDate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
 
@@ -118,19 +124,22 @@ export default function DashboardPage() {
             {data.admin.recentAudit.length === 0 ? (
               <EmptyState message="No audit events yet" />
             ) : (
-              <table className="table">
-                <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Entity</th></tr></thead>
-                <tbody>
-                  {data.admin.recentAudit.map((event) => (
-                    <tr key={event.id}>
-                      <td>{formatDate(event.createdAt)}</td>
-                      <td>{event.actorEmail ?? 'System'}</td>
-                      <td><Badge tone={toneForStatus(event.action)}>{event.action}</Badge></td>
-                      <td>{event.entityType}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div role="region" aria-label="Recent audit activity table" tabIndex={0} className="overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                <table className="table">
+                  <caption className="sr-only">Recent audit activity</caption>
+                  <thead><tr><th scope="col">Time</th><th scope="col">Actor</th><th scope="col">Action</th><th scope="col">Entity</th></tr></thead>
+                  <tbody>
+                    {data.admin.recentAudit.map((event) => (
+                      <tr key={event.id}>
+                        <td>{formatDate(event.createdAt)}</td>
+                        <td>{event.actorEmail ?? 'System'}</td>
+                        <td><Badge tone={toneForStatus(event.action)}>{event.action}</Badge></td>
+                        <td>{event.entityType}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </Card>
         ) : null}

@@ -2,7 +2,7 @@
   "name": "umu-hr-system",
   "version": "0.1.0",
   "private": true,
-  "description": "University HR and Staff Management System - modular monolith (Phase 1)",
+  "description": "University HR and Staff Management System - modular monolith (Phase 4)",
   "type": "module",
   "workspaces": ["packages/*", "apps/*"],
   "engines": {
