@@ -27,7 +27,7 @@ jobs:
       DATABASE_URL: mysql://root:root_dev_password@127.0.0.1:3306/hr_system
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
